@@ -1,0 +1,151 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCart } from '../../context/CartContext';
+import { pickPrimaryImage } from '../../lib/storage';
+import type { BuyerStackParamList } from '../../navigation/BuyerStack';
+import { useAuth } from '../../context/AuthContext';
+import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
+import { C, S, R, BTN, T } from '../../lib/theme';
+
+const CARD_COLORS = [C.card0, C.card1, C.card2, C.card3];
+
+export function CartScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
+  const { items, loading, setQuantity, remove } = useCart();
+  const { session } = useAuth();
+
+  if (!session?.user) {
+    return <ScreenPlaceholder title="Cart" subtitle="Sign in to view and manage your cart." />;
+  }
+
+  const subtotal = items.reduce(
+    (acc, item) => acc + (item.product_variant?.product.price ?? 0) * item.quantity, 0,
+  );
+  const isEmpty = !loading && items.length === 0;
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 16 }}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>My Cart</Text>
+          </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator style={{ marginTop: 60 }} color={C.pink} />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyEmoji}>🛒</Text>
+              <Text style={T.h3}>Your cart is empty</Text>
+              <Text style={[T.bodySmall, { color: C.muted }]}>Browse products and add items to cart</Text>
+              <TouchableOpacity style={styles.browseBtn} onPress={() => navigation.goBack()}>
+                <Text style={styles.browseBtnText}>Browse Products</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        }
+        renderItem={({ item, index }) => {
+          const bgColor = CARD_COLORS[index % CARD_COLORS.length];
+          const variantLabel = item.product_variant?.size && item.product_variant?.color
+            ? `${item.product_variant.size} • ${item.product_variant.color}`
+            : item.product_variant?.size ?? item.product_variant?.color ?? '';
+          const imageUrl = pickPrimaryImage(item.product_variant?.product);
+          return (
+            <View style={styles.card}>
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.imagePlaceholder, { backgroundColor: bgColor }]}>
+                  <Text style={[styles.imageText, { color: C.rose }]}>
+                    {item.product_variant?.product.name[0]?.toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.name} numberOfLines={2}>{item.product_variant?.product.name}</Text>
+                {variantLabel ? <Text style={styles.variant}>{variantLabel}</Text> : null}
+                <Text style={styles.price}>₹{(item.product_variant?.product.price ?? 0).toFixed(0)}</Text>
+                <View style={styles.row}>
+                  <View style={styles.qtyControls}>
+                    <TouchableOpacity onPress={() => setQuantity(item.variant_id, Math.max(1, item.quantity - 1))}>
+                      <Text style={styles.qtyButton}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.qtyValue}>{item.quantity}</Text>
+                    <TouchableOpacity onPress={() => setQuantity(item.variant_id, item.quantity + 1)}>
+                      <Text style={styles.qtyButton}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity onPress={() => remove(item.variant_id)}>
+                    <Text style={styles.remove}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        }}
+      />
+
+      <View style={styles.summary}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.summaryLabel}>Subtotal ({items.length} items)</Text>
+          <Text style={styles.summaryValue}>₹{subtotal.toFixed(0)}</Text>
+        </View>
+        <View style={styles.rowBetween}>
+          <Text style={styles.summaryLabel}>Delivery</Text>
+          <Text style={styles.freeDelivery}>{subtotal >= 499 ? 'FREE 🎉' : `₹${49}`}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.checkoutButton, (isEmpty || loading) && styles.checkoutButtonDisabled]}
+          onPress={() => navigation.navigate('Checkout')}
+          disabled={isEmpty || loading}
+        >
+          {loading ? <ActivityIndicator color={C.white} /> : <Text style={styles.checkoutText}>🛒  Proceed to Checkout</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.white },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.sm },
+  headerTitle: { ...T.h2 },
+  card: {
+    flexDirection: 'row', gap: S.md, padding: S.md,
+    marginHorizontal: S.lg, marginTop: S.sm, borderRadius: R.xl,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    shadowColor: C.pink, shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
+  },
+  productImage: { width: 80, height: 80, borderRadius: R.lg, backgroundColor: C.card0 },
+  imagePlaceholder: { width: 80, height: 80, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center' },
+  imageText: { fontSize: 28, fontWeight: '800' },
+  name: { ...T.h4 },
+  variant: { ...T.caption },
+  price: { ...T.price, fontSize: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  qtyControls: {
+    flexDirection: 'row', alignItems: 'center', gap: S.md,
+    borderWidth: 1.5, borderColor: C.border, borderRadius: R.full,
+    paddingHorizontal: S.md, paddingVertical: 5,
+  },
+  qtyButton: { fontSize: 18, fontWeight: '700', color: C.rose },
+  qtyValue: { ...T.h4 },
+  remove: { ...T.caption, fontWeight: '700', color: C.pink },
+  emptyContainer: { alignItems: 'center', paddingTop: 80, gap: S.sm },
+  emptyEmoji: { fontSize: 56 },
+  browseBtn: { ...BTN.primary, paddingHorizontal: S.xl, height: 48, marginTop: S.sm },
+  browseBtnText: { ...BTN.primaryText },
+  summary: { padding: S.lg, borderTopWidth: 1, borderColor: C.border, backgroundColor: C.white, gap: S.sm },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryLabel: { ...T.bodySmall, color: C.muted },
+  summaryValue: { ...T.h3 },
+  freeDelivery: { fontSize: 14, fontWeight: '700', color: C.success },
+  checkoutButton: { ...BTN.primary, marginTop: S.xs },
+  checkoutButtonDisabled: { ...BTN.primary, ...BTN.disabled },
+  checkoutText: { ...BTN.primaryText },
+});

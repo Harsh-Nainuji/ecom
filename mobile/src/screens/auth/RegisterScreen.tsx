@@ -1,0 +1,150 @@
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BuyerStackParamList } from '../../navigation/BuyerStack';
+import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
+
+export function RegisterScreen() {
+  const { signUp } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (submitting) return;
+    if (!fullName.trim() || !email.trim() || !password) return;
+    setSubmitting(true);
+    try {
+      await signUp({ email: email.trim(), password, fullName: fullName.trim(), role });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const [nameFocused, setNameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passFocused, setPassFocused] = useState(false);
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+        <View style={styles.brandRow}>
+          <View style={styles.brandDot} />
+          <Text style={styles.brand}>FabZone</Text>
+        </View>
+        <Text style={T.h1}>Create account</Text>
+        <Text style={[T.bodySmall, { color: C.muted, marginTop: S.xs, marginBottom: S.md }]}>Join as a Buyer or Seller</Text>
+
+        {/* Role Toggle */}
+        <View style={styles.roleRow}>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === 'buyer' && styles.roleBtnActive]}
+            onPress={() => setRole('buyer')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.roleEmoji}>🛒</Text>
+            <Text style={[styles.roleLabel, role === 'buyer' && styles.roleLabelActive]}>Buyer</Text>
+            <Text style={[styles.roleDesc, role === 'buyer' && { color: C.rose }]}>Shop products</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === 'seller' && styles.roleBtnActiveSeller]}
+            onPress={() => setRole('seller')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.roleEmoji}>🏪</Text>
+            <Text style={[styles.roleLabel, role === 'seller' && styles.roleLabelActiveSeller]}>Seller</Text>
+            <Text style={[styles.roleDesc, role === 'seller' && { color: '#a0522d' }]}>Sell products</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.form}>
+          <View>
+            <Text style={INPUT.label}>Full Name</Text>
+            <TextInput
+              style={[INPUT.base, nameFocused && INPUT.focused]}
+              placeholder="Your full name"
+              placeholderTextColor={C.muted}
+              value={fullName}
+              onChangeText={setFullName}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
+            />
+          </View>
+          <View>
+            <Text style={INPUT.label}>Email</Text>
+            <TextInput
+              style={[INPUT.base, emailFocused && INPUT.focused]}
+              placeholder="you@example.com"
+              placeholderTextColor={C.muted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
+            />
+          </View>
+          <View>
+            <Text style={INPUT.label}>Password</Text>
+            <TextInput
+              style={[INPUT.base, passFocused && INPUT.focused]}
+              placeholder="Min 6 characters"
+              placeholderTextColor={C.muted}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setPassFocused(true)}
+              onBlur={() => setPassFocused(false)}
+            />
+          </View>
+        </View>
+
+        <Pressable
+          style={[BTN.primary, submitting && BTN.disabled]}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          <Text style={BTN.primaryText}>
+            {submitting ? 'Creating account…' : `Create ${role === 'buyer' ? 'Buyer' : 'Seller'} Account`}
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={() => navigation.navigate('Login' as never)} style={styles.loginRow}>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <Text style={T.link}>Sign in</Text>
+        </Pressable>
+
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.white },
+  scroll: { paddingHorizontal: S.lg, paddingTop: S.xxl, paddingBottom: S.xl, gap: S.md },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.sm },
+  brandDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.rose },
+  brand: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: 1.5 },
+  roleRow: { flexDirection: 'row', gap: S.sm },
+  roleBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: C.border,
+    borderRadius: R.lg, paddingVertical: S.md,
+    alignItems: 'center', gap: S.xs, backgroundColor: C.surface,
+  },
+  roleBtnActive: { borderColor: C.rose, backgroundColor: C.card2 },
+  roleBtnActiveSeller: { borderColor: C.beige, backgroundColor: C.card1 },
+  roleEmoji: { fontSize: 24 },
+  roleLabel: { fontSize: 14, fontWeight: '700', color: C.muted },
+  roleLabelActive: { color: C.rose },
+  roleLabelActiveSeller: { color: '#a0522d' },
+  roleDesc: { fontSize: 11, color: C.muted },
+  form: { gap: S.md },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: S.sm },
+  loginText: { fontSize: 14, color: C.muted },
+});
