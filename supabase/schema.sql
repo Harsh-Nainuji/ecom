@@ -23,6 +23,19 @@ create type public.order_status as enum (
 create type public.payment_status as enum ('pending', 'authorized', 'paid', 'failed', 'refunded');
 create type public.delivery_state as enum ('unassigned', 'assigned', 'out_for_delivery', 'completed', 'failed');
 
+-- Tables --------------------------------------------------------------------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  role public.user_role not null default 'buyer',
+  full_name text,
+  phone text,
+  avatar_url text,
+  is_blocked boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists profiles_role_idx on public.profiles (role);
+
 -- Helper functions -----------------------------------------------------------
 create or replace function public.app_user_role()
 returns public.user_role
@@ -42,19 +55,6 @@ as $$
     where id = auth.uid() and role = 'admin'
   );
 $$;
-
--- Tables --------------------------------------------------------------------
-create table if not exists public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  role public.user_role not null default 'buyer',
-  full_name text,
-  phone text,
-  avatar_url text,
-  is_blocked boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index if not exists profiles_role_idx on public.profiles (role);
 
 create table if not exists public.seller_profiles (
   id uuid primary key references public.profiles (id) on delete cascade,
@@ -119,9 +119,10 @@ create table if not exists public.product_variants (
   size text,
   color text,
   stock int not null default 0 check (stock >= 0),
-  price_override numeric(12,2),
-  unique (product_id, coalesce(size, ''), coalesce(color, ''))
+  price_override numeric(12,2)
 );
+create unique index if not exists product_variants_product_id_size_color_idx
+  on public.product_variants (product_id, coalesce(size, ''), coalesce(color, ''));
 
 create table if not exists public.wishlists (
   buyer_id uuid not null references public.profiles (id) on delete cascade,
@@ -276,7 +277,7 @@ as $$
 declare
   v_code text;
 begin
-  if new.order_status = 'out_for_delivery' and coalesce(old.order_status, '') <> 'out_for_delivery' then
+  if new.order_status = 'out_for_delivery' and coalesce(old.order_status, 'pending') <> 'out_for_delivery' then
     v_code := lpad((floor(random() * 900000) + 100000)::text, 6, '0');
 
     insert into public.delivery_otps (order_id, otp_code, expires_at, used, generated_at, attempt_count)
@@ -296,7 +297,7 @@ drop trigger if exists trg_generate_delivery_otp on public.orders;
 create trigger trg_generate_delivery_otp
   after update on public.orders
   for each row
-  when (new.order_status = 'out_for_delivery' and coalesce(old.order_status, '') <> 'out_for_delivery')
+  when (new.order_status = 'out_for_delivery' and coalesce(old.order_status, 'pending') <> 'out_for_delivery')
   execute function public.handle_out_for_delivery_otp();
 
 create table if not exists public.reviews (

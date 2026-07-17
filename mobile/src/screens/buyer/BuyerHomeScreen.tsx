@@ -11,8 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { fetchCategories, fetchFeaturedProducts, searchProducts } from '../../lib/api/buyer';
 import { pickPrimaryImage } from '../../lib/storage';
 import type { Category, Product } from '../../lib/types';
@@ -38,7 +40,7 @@ export function BuyerHomeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const featuredTitle = useMemo(
-    () => (selectedCategory || query ? '🔍 Results' : '✨ Featured Picks'),
+    () => (selectedCategory || query ? 'Search Results' : 'Featured Picks'),
     [selectedCategory, query],
   );
 
@@ -105,7 +107,7 @@ export function BuyerHomeScreen() {
       ListHeaderComponent={
         <View>
           {/* Hero Banner */}
-          <View style={styles.heroBanner}>
+          <LinearGradient colors={[C.rose, '#f46f90']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBanner}>
             <View style={styles.heroBannerInner}>
               <View style={styles.heroTagRow}>
                 <View style={styles.heroTagDot} />
@@ -117,12 +119,15 @@ export function BuyerHomeScreen() {
                 <Text style={styles.heroBtnText}>Shop Now →</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.heroEmoji}>👗</Text>
-          </View>
+            <View style={styles.heroAccent}>
+              <MaterialCommunityIcons name="human-female-dance" size={52} color={C.white} />
+              <View style={styles.heroAccentDot} />
+            </View>
+          </LinearGradient>
 
           {/* Search Bar */}
           <View style={styles.searchWrapper}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Feather name="search" size={18} color={C.muted} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search kurtas, sneakers, accessories…"
@@ -134,7 +139,7 @@ export function BuyerHomeScreen() {
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.searchClear}>✕</Text>
+                <Feather name="x" size={16} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -163,11 +168,17 @@ export function BuyerHomeScreen() {
           </ScrollView>
 
           {/* Promo Strip */}
-          <View style={styles.promoStrip}>
-            <Text style={styles.promoText}>🚚  Free delivery above ₹499</Text>
+          <LinearGradient colors={[C.card2, C.peach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.promoStrip}>
+            <View style={styles.promoItem}>
+              <Feather name="truck" size={16} color={C.white} />
+              <Text style={styles.promoText}>Free delivery above ₹499</Text>
+            </View>
             <View style={styles.promoDivider} />
-            <Text style={styles.promoText}>🎁  New user? 10% off</Text>
-          </View>
+            <View style={styles.promoItem}>
+              <Feather name="gift" size={16} color={C.white} />
+              <Text style={styles.promoText}>New user? 10% off</Text>
+            </View>
+          </LinearGradient>
 
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>{featuredTitle}</Text>
@@ -177,7 +188,9 @@ export function BuyerHomeScreen() {
       }
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>🛍️</Text>
+          <View style={styles.emptyIcon}>
+            <Feather name="shopping-bag" size={22} color={C.rose} />
+          </View>
           <Text style={T.h4}>{error ? 'Something went wrong' : 'No products found'}</Text>
           <Text style={[T.bodySmall, { color: error ? C.error : C.muted }]}>
             {error ?? 'Try a different search or category.'}
@@ -187,7 +200,6 @@ export function BuyerHomeScreen() {
       renderItem={({ item, index }) => {
         const pal = CARD_PALETTES[index % CARD_PALETTES.length];
         const avg = item.reviews_aggregate?.avg ?? 0;
-        const stars = '★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg));
         const imageUrl = pickPrimaryImage(item);
         return (
           <TouchableOpacity
@@ -211,7 +223,14 @@ export function BuyerHomeScreen() {
               <Text numberOfLines={2} style={styles.productName}>{item.name}</Text>
               {avg > 0 && (
                 <View style={styles.ratingRow}>
-                  <Text style={styles.ratingStars}>{stars}</Text>
+                  {Array.from({ length: 5 }).map((_, idx) => (
+                    <Feather
+                      key={`${item.id}-star-${idx}`}
+                      name="star"
+                      size={11}
+                      color={idx < Math.round(avg) ? C.warning : '#e5e7eb'}
+                    />
+                  ))}
                   <Text style={styles.ratingCount}>({item.reviews_aggregate?.count ?? 0})</Text>
                 </View>
               )}
@@ -229,8 +248,9 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white },
   heroBanner: {
     marginHorizontal: S.md, marginTop: S.md, marginBottom: S.sm,
-    backgroundColor: C.peach, borderRadius: R.xl, padding: S.lg,
-    flexDirection: 'row', alignItems: 'center',
+    borderRadius: R.xl, padding: S.lg,
+    flexDirection: 'row', alignItems: 'center', overflow: 'hidden',
+    shadowColor: C.rose, shadowOpacity: 0.18, shadowRadius: 12, elevation: 4,
   },
   heroBannerInner: { flex: 1, gap: S.xs },
   heroTagRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginBottom: S.xs },
@@ -239,22 +259,32 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 24, fontWeight: '800', color: C.text, lineHeight: 30 },
   heroSubtitle: { ...T.bodySmall, color: C.text3, marginBottom: S.sm },
   heroBtn: {
-    backgroundColor: C.rose, borderRadius: R.md,
+    backgroundColor: C.white, borderRadius: R.md,
     paddingHorizontal: S.md, paddingVertical: S.xs + 2,
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-start', shadowColor: '#fff', shadowOpacity: 0.2, shadowRadius: 8,
   },
-  heroBtnText: { color: C.white, fontWeight: '700', fontSize: 13 },
-  heroEmoji: { fontSize: 52 },
+  heroBtnText: { color: C.rose, fontWeight: '700', fontSize: 13 },
+  heroAccent: {
+    width: 76, height: 76, borderRadius: R.xxl,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginLeft: S.md, position: 'relative',
+  },
+  heroAccentDot: {
+    position: 'absolute', width: 16, height: 16, borderRadius: 8,
+    backgroundColor: C.white, top: 8, right: 6, opacity: 0.85,
+  },
   searchWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.inputBg, borderRadius: R.md,
+    backgroundColor: C.white, borderRadius: R.lg,
     marginHorizontal: S.md, marginVertical: S.sm,
     paddingHorizontal: S.md, height: 48,
-    borderWidth: 1.5, borderColor: C.border,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
+    shadowColor: C.pink, shadowOpacity: 0.1, shadowRadius: 10, elevation: 2,
   },
-  searchIcon: { fontSize: 15, marginRight: S.sm },
+  searchIcon: { marginRight: S.sm },
   searchInput: { flex: 1, fontSize: 14, color: C.text2, paddingVertical: 0 },
-  searchClear: { fontSize: 14, color: C.muted, paddingLeft: S.sm },
   sectionRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
@@ -271,21 +301,29 @@ const styles = StyleSheet.create({
   categoryChipText: { color: C.muted, fontWeight: '600', fontSize: 13 },
   categoryChipTextActive: { color: C.white },
   promoStrip: {
-    backgroundColor: C.card0, marginHorizontal: S.md, borderRadius: R.md,
+    marginHorizontal: S.md, borderRadius: R.lg,
     paddingVertical: S.sm, paddingHorizontal: S.md,
-    flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.md,
-    borderWidth: 1, borderColor: C.border,
+    flexDirection: 'row', alignItems: 'center', gap: S.md, marginBottom: S.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    shadowColor: C.peach, shadowOpacity: 0.2, shadowRadius: 12, elevation: 3,
   },
-  promoText: { fontSize: 12, color: C.rose, fontWeight: '600', flex: 1 },
-  promoDivider: { width: 1, height: 14, backgroundColor: C.pink },
+  promoItem: { flexDirection: 'row', alignItems: 'center', gap: S.xs, flex: 1 },
+  promoText: { fontSize: 12, color: C.white, fontWeight: '600' },
+  promoDivider: { width: 1.2, height: 18, backgroundColor: 'rgba(255,255,255,0.45)' },
   productGrid: { paddingHorizontal: S.sm, paddingBottom: 40, gap: S.sm },
   card: {
     flex: 1, backgroundColor: C.white, borderRadius: R.xl,
-    overflow: 'hidden', borderWidth: 1, borderColor: C.border,
-    shadowColor: C.pink, shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
+    overflow: 'hidden', borderWidth: 1, borderColor: '#f4c7d2',
+    shadowColor: C.pink, shadowOpacity: 0.16, shadowRadius: 10, elevation: 3,
   },
-  productImage: { height: 130, width: '100%', backgroundColor: C.card0 },
-  imagePlaceholder: { height: 130, alignItems: 'center', justifyContent: 'center' },
+  productImage: {
+    height: 130, width: '100%', backgroundColor: C.card0,
+    borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl,
+  },
+  imagePlaceholder: {
+    height: 130, alignItems: 'center', justifyContent: 'center',
+    borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl,
+  },
   imageText: { fontSize: 42, fontWeight: '800' },
   cardBadge: {
     position: 'absolute', top: 8, right: 8,
@@ -295,10 +333,13 @@ const styles = StyleSheet.create({
   cardBadgeText: { color: C.white, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   cardBody: { padding: S.sm, gap: 3 },
   productName: { fontSize: 13, fontWeight: '600', color: C.text, lineHeight: 18 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingStars: { fontSize: 10, color: C.warning },
-  ratingCount: { ...T.caption, fontSize: 10 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingCount: { ...T.caption, fontSize: 10, marginLeft: 4 },
   productPrice: { fontSize: 15, fontWeight: '800', color: C.rose },
   emptyContainer: { alignItems: 'center', paddingVertical: 48, gap: S.sm },
-  emptyEmoji: { fontSize: 48 },
+  emptyIcon: {
+    width: 50, height: 50, borderRadius: R.full,
+    backgroundColor: C.card2, borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

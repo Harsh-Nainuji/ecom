@@ -7,7 +7,7 @@ export async function listBuyers() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, phone, is_blocked, created_at, orders:orders(count)')
+    .select('id, full_name, phone, is_blocked, created_at, orders:orders!orders_buyer_id_fkey(count)')
     .eq('role', 'buyer')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -26,7 +26,7 @@ export async function listSellers() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id, full_name, phone, is_blocked, created_at, seller_profiles!inner(business_name, mobile, email, gst_number, status, rejected_reason), products:products(count)',
+      'id, full_name, phone, is_blocked, created_at, seller_profiles:seller_profiles!seller_profiles_id_fkey(business_name, mobile, email, gst_number, status, rejected_reason), products:products!products_seller_id_fkey(count)',
     )
     .eq('role', 'seller')
     .order('created_at', { ascending: false });

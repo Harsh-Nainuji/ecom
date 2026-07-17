@@ -2,7 +2,7 @@
 
 Status of the first version (v1) Android marketplace application against the agreed scope.
 
-> **Last updated:** 13 Jul 2026
+> **Last updated:** 17 Jul 2026
 
 ## Legend
 
@@ -19,7 +19,7 @@ Status of the first version (v1) Android marketplace application against the agr
 | User Registration | [x] | Email/password signup via Supabase; buyer/seller role selected at registration. |
 | User Login | [x] | Supabase auth sign-in. |
 | Forgot Password | [x] | Sends Supabase password-reset email. |
-| Home Screen | [x] | Live categories and featured products. |
+| Home Screen | [x] | Live categories and featured products; gradient hero banner, iconography, and refined product cards. |
 | Product Categories | [x] | Fetched from Supabase; filterable on home screen. |
 | Product Search | [x] | Search by name with category filter. |
 | Product Details | [x] | Live product + variants + description. |
@@ -126,7 +126,7 @@ Status of the first version (v1) Android marketplace application against the agr
 
 | Item | Status | Notes |
 |---|---|---|
-| Supabase backend + RLS | [x] | Tables, enums, RLS policies, and triggers in place. |
+| Supabase backend + RLS | [x] | Tables, enums, RLS policies, and triggers in place; schema SQL pushed to remote project. Admin embeds use explicit FK names to avoid ambiguous relationships. |
 | Mobile TypeScript passes | [x] | `mobile/node_modules/.bin/tsc --noEmit --skipLibCheck -p mobile/tsconfig.json` exits 0. |
 | Admin TypeScript passes | [x] | `admin/node_modules/.bin/tsc --noEmit --skipLibCheck -p admin/tsconfig.json` exits 0. |
 | Push notifications | [ ] | Not in v1 scope. |
@@ -136,6 +136,7 @@ Status of the first version (v1) Android marketplace application against the agr
 
 ## Next Recommended Work
 
-1. **Seller product edit/delete** — full edit form and delete action.
-2. **Delivery redelivery / customer-unavailable** — delivery partner actions + OTP regeneration.
-3. **Revenue features** — commission settings UI and sponsored listing flow (if required before v1 freeze).
+1. **Seed demo data** — insert sample buyers, sellers, categories, and products so the admin dashboard and mobile home screen show real content instead of empty states.
+2. **Seller product edit/delete** — full edit form and delete action.
+3. **Delivery redelivery / customer-unavailable** — delivery partner actions + OTP regeneration.
+4. **Revenue features** — commission settings UI and sponsored listing flow (if required before v1 freeze).
