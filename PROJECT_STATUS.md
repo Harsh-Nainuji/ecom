@@ -146,14 +146,14 @@ Status of the first version (v1) Android marketplace application against the agr
 
 ## Demo Accounts & Credentials
 
-Seed file: `supabase/seeds/demo_data.sql`
+Seed & reset script: `admin/scripts/seed_demo.js` (create users + data), `admin/scripts/reset_demo_passwords.js` (reset passwords).
 
 | Role | Email | Password | Notes |
 |---|---|---|---|
-| Buyer | `buyer.demo@fabzone.dev` | `DemoBuyer1!` | Sample buyer with cart, address, and orders. |
-| Buyer 2 | `buyer.second@fabzone.dev` | `DemoBuyer2!` | Secondary buyer with a delivered order. |
-| Seller | `seller.demo@fabzone.dev` | `DemoSeller1!` | Approved seller “Ira Collections” with products. |
-| Seller 2 | `seller.handloom@fabzone.dev` | `DemoSeller2!` | Approved seller “Handloom Stories” with products. |
-| Delivery Partner | `delivery.demo@fabzone.dev` | `DemoDelivery1!` | Delivery partner assigned to one order. |
+| Buyer | `buyer.demo@fabzone.dev` | `demobuyer1` | Sample buyer with cart, address, and orders. |
+| Buyer 2 | `buyer.second@fabzone.dev` | `demobuyer2` | Secondary buyer with a delivered order. |
+| Seller | `seller.demo@fabzone.dev` | `demoseller1` | Approved seller “Ira Collections” with products. |
+| Seller 2 | `seller.handloom@fabzone.dev` | `demoseller2` | Approved seller “Handloom Stories” with products. |
+| Delivery Partner | `delivery.demo@fabzone.dev` | `demodelivery1` | Delivery partner assigned to one order. |
 
-Use these accounts to test login across the buyer, seller, and delivery apps.
+Use these accounts to test login across the buyer, seller, and delivery apps. If Expo was running before the credentials changed, restart it with `npx expo start --clear`.
