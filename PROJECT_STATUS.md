@@ -2,7 +2,9 @@
 
 Status of the first version (v1) Android marketplace application against the agreed scope.
 
-> **Last updated:** 17 Jul 2026
+> **Last updated:** 18 Jul 2026
+>
+> **v1 Readiness: ~80% complete** — 54 of 67 tracked items are fully implemented and wired to Supabase; 3 are partially built; 10 remain open (revenue features, redelivery, product edit/delete, Play Store publishing).
 
 ## Legend
 
@@ -136,7 +138,22 @@ Status of the first version (v1) Android marketplace application against the agr
 
 ## Next Recommended Work
 
-1. **Seed demo data** — insert sample buyers, sellers, categories, and products so the admin dashboard and mobile home screen show real content instead of empty states.
-2. **Seller product edit/delete** — full edit form and delete action.
-3. **Delivery redelivery / customer-unavailable** — delivery partner actions + OTP regeneration.
-4. **Revenue features** — commission settings UI and sponsored listing flow (if required before v1 freeze).
+1. **Seller product edit/delete** — full edit form and delete action.
+2. **Delivery redelivery / customer-unavailable** — delivery partner actions + OTP regeneration.
+3. **Revenue features** — commission settings UI and sponsored listing flow (if required before v1 freeze).
+
+---
+
+## Demo Accounts & Credentials
+
+Seed file: `supabase/seeds/demo_data.sql`
+
+| Role | Email | Password | Notes |
+|---|---|---|---|
+| Buyer | `buyer.demo@fabzone.dev` | `DemoBuyer1!` | Sample buyer with cart, address, and orders. |
+| Buyer 2 | `buyer.second@fabzone.dev` | `DemoBuyer2!` | Secondary buyer with a delivered order. |
+| Seller | `seller.demo@fabzone.dev` | `DemoSeller1!` | Approved seller “Ira Collections” with products. |
+| Seller 2 | `seller.handloom@fabzone.dev` | `DemoSeller2!` | Approved seller “Handloom Stories” with products. |
+| Delivery Partner | `delivery.demo@fabzone.dev` | `DemoDelivery1!` | Delivery partner assigned to one order. |
+
+Use these accounts to test login across the buyer, seller, and delivery apps.
