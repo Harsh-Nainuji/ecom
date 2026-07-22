@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ShoppingBag } from 'lucide-react-native';
 import { fetchOrders } from '../../lib/api/buyer';
 import type { OrderSummary } from '../../lib/types';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
@@ -64,6 +65,7 @@ export function BuyerOrdersScreen() {
       contentContainerStyle={{ paddingBottom: 24 }}
       data={orders}
       keyExtractor={(item) => item.id}
+      showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={C.pink} />}
       ListHeaderComponent={
         <View style={styles.header}>
@@ -76,7 +78,7 @@ export function BuyerOrdersScreen() {
           <ActivityIndicator style={{ marginTop: 40 }} color={C.pink} />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🛍️</Text>
+            <ShoppingBag size={48} color={C.pink} strokeWidth={1.5} />
             <Text style={T.h3}>{error ? 'Unable to load' : 'No orders yet'}</Text>
             <Text style={[T.bodySmall, { color: error ? C.error : C.muted, marginTop: S.xs }]}>
               {error ?? 'Start shopping to see your orders here!'}
@@ -123,10 +125,10 @@ const styles = StyleSheet.create({
   headerSub: { ...T.caption, marginTop: 2 },
   card: {
     marginHorizontal: S.lg, marginTop: S.sm,
-    padding: S.md, borderRadius: R.xl,
+    padding: S.md, borderRadius: R.lg,
     backgroundColor: C.white,
     borderWidth: 1, borderColor: C.border,
-    shadowColor: C.pink, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3,
+    shadowColor: C.pink, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
     gap: S.sm,
   },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -142,5 +144,4 @@ const styles = StyleSheet.create({
   totalLabel: { ...T.caption, fontWeight: '600' },
   totalAmount: { ...T.h3 },
   emptyContainer: { alignItems: 'center', paddingTop: 80, gap: S.sm },
-  emptyEmoji: { fontSize: 56 },
 });

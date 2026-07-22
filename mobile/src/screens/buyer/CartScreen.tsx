@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ShoppingCart, Minus, Plus } from 'lucide-react-native';
 import { useCart } from '../../context/CartContext';
 import { pickPrimaryImage } from '../../lib/storage';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
@@ -40,10 +41,10 @@ export function CartScreen() {
             <ActivityIndicator style={{ marginTop: 60 }} color={C.pink} />
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🛒</Text>
+              <ShoppingCart size={48} color={C.rose} strokeWidth={1.5} style={{ marginBottom: S.xs }} />
               <Text style={T.h3}>Your cart is empty</Text>
               <Text style={[T.bodySmall, { color: C.muted }]}>Browse products and add items to cart</Text>
-              <TouchableOpacity style={styles.browseBtn} onPress={() => navigation.goBack()}>
+              <TouchableOpacity style={styles.browseBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
                 <Text style={styles.browseBtnText}>Browse Products</Text>
               </TouchableOpacity>
             </View>
@@ -72,15 +73,21 @@ export function CartScreen() {
                 <Text style={styles.price}>₹{(item.product_variant?.product.price ?? 0).toFixed(0)}</Text>
                 <View style={styles.row}>
                   <View style={styles.qtyControls}>
-                    <TouchableOpacity onPress={() => setQuantity(item.variant_id, Math.max(1, item.quantity - 1))}>
-                      <Text style={styles.qtyButton}>−</Text>
+                    <TouchableOpacity
+                      onPress={() => setQuantity(item.variant_id, Math.max(1, item.quantity - 1))}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Minus size={14} color={C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                     <Text style={styles.qtyValue}>{item.quantity}</Text>
-                    <TouchableOpacity onPress={() => setQuantity(item.variant_id, item.quantity + 1)}>
-                      <Text style={styles.qtyButton}>+</Text>
+                    <TouchableOpacity
+                      onPress={() => setQuantity(item.variant_id, item.quantity + 1)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Plus size={14} color={C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={() => remove(item.variant_id)}>
+                  <TouchableOpacity onPress={() => remove(item.variant_id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.remove}>Remove</Text>
                   </TouchableOpacity>
                 </View>
@@ -97,14 +104,15 @@ export function CartScreen() {
         </View>
         <View style={styles.rowBetween}>
           <Text style={styles.summaryLabel}>Delivery</Text>
-          <Text style={styles.freeDelivery}>{subtotal >= 499 ? 'FREE 🎉' : `₹${49}`}</Text>
+          <Text style={styles.freeDelivery}>{subtotal >= 499 ? 'FREE' : `₹${49}`}</Text>
         </View>
         <TouchableOpacity
           style={[styles.checkoutButton, (isEmpty || loading) && styles.checkoutButtonDisabled]}
           onPress={() => navigation.navigate('Checkout')}
           disabled={isEmpty || loading}
+          activeOpacity={0.9}
         >
-          {loading ? <ActivityIndicator color={C.white} /> : <Text style={styles.checkoutText}>🛒  Proceed to Checkout</Text>}
+          {loading ? <ActivityIndicator color={C.white} /> : <Text style={styles.checkoutText}>Proceed to Checkout</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -117,12 +125,12 @@ const styles = StyleSheet.create({
   headerTitle: { ...T.h2 },
   card: {
     flexDirection: 'row', gap: S.md, padding: S.md,
-    marginHorizontal: S.lg, marginTop: S.sm, borderRadius: R.xl,
+    marginHorizontal: S.lg, marginTop: S.sm, borderRadius: R.lg,
     backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
-    shadowColor: C.pink, shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
+    shadowColor: C.pink, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
   },
-  productImage: { width: 80, height: 80, borderRadius: R.lg, backgroundColor: C.card0 },
-  imagePlaceholder: { width: 80, height: 80, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center' },
+  productImage: { width: 80, height: 80, borderRadius: R.md, backgroundColor: C.card0 },
+  imagePlaceholder: { width: 80, height: 80, borderRadius: R.md, alignItems: 'center', justifyContent: 'center' },
   imageText: { fontSize: 28, fontWeight: '800' },
   name: { ...T.h4 },
   variant: { ...T.caption },
@@ -130,14 +138,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   qtyControls: {
     flexDirection: 'row', alignItems: 'center', gap: S.md,
-    borderWidth: 1.5, borderColor: C.border, borderRadius: R.full,
+    borderWidth: 1, borderColor: C.border, borderRadius: R.full,
     paddingHorizontal: S.md, paddingVertical: 5,
   },
-  qtyButton: { fontSize: 18, fontWeight: '700', color: C.rose },
   qtyValue: { ...T.h4 },
-  remove: { ...T.caption, fontWeight: '700', color: C.pink },
+  remove: { ...T.caption, fontWeight: '700', color: C.rose },
   emptyContainer: { alignItems: 'center', paddingTop: 80, gap: S.sm },
-  emptyEmoji: { fontSize: 56 },
   browseBtn: { ...BTN.primary, paddingHorizontal: S.xl, height: 48, marginTop: S.sm },
   browseBtnText: { ...BTN.primaryText },
   summary: { padding: S.lg, borderTopWidth: 1, borderColor: C.border, backgroundColor: C.white, gap: S.sm },

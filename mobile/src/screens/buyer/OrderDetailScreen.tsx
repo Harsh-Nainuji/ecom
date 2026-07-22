@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { ClipboardList, CreditCard, Package, Truck, Bike, Check, X, Star } from 'lucide-react-native';
 import { cancelOrder, createReview, fetchOrderDetail } from '../../lib/api/buyer';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import type { OrderDetail } from '../../lib/types';
@@ -9,14 +10,24 @@ import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { useAuth } from '../../context/AuthContext';
 import { C, S, R, BTN, INPUT, T, CARD } from '../../lib/theme';
 
-const ORDER_FLOW: { key: OrderDetail['order_status']; label: string; icon: string }[] = [
-  { key: 'pending',          label: 'Order Placed',       icon: '📋' },
-  { key: 'paid',             label: 'Payment Confirmed',  icon: '💳' },
-  { key: 'packed',           label: 'Packed',             icon: '📦' },
-  { key: 'shipped',          label: 'Shipped',            icon: '🚚' },
-  { key: 'out_for_delivery', label: 'Out for Delivery',   icon: '🛵' },
-  { key: 'delivered',        label: 'Delivered',          icon: '✅' },
+const ORDER_FLOW: { key: OrderDetail['order_status']; label: string }[] = [
+  { key: 'pending',          label: 'Order Placed' },
+  { key: 'paid',             label: 'Payment Confirmed' },
+  { key: 'packed',           label: 'Packed' },
+  { key: 'shipped',          label: 'Shipped' },
+  { key: 'out_for_delivery', label: 'Out for Delivery' },
+  { key: 'delivered',        label: 'Delivered' },
 ];
+
+const STEP_ICONS: Record<OrderDetail['order_status'], any> = {
+  pending: ClipboardList,
+  paid: CreditCard,
+  packed: Package,
+  shipped: Truck,
+  out_for_delivery: Bike,
+  delivered: Check,
+  cancelled: X,
+};
 
 export function OrderDetailScreen() {
   const route = useRoute<RouteProp<BuyerStackParamList, 'OrderDetail'>>();
@@ -124,7 +135,7 @@ export function OrderDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.headerCard}>
         <View>
@@ -157,32 +168,34 @@ export function OrderDetailScreen() {
         <Text style={[T.h4, { marginBottom: S.md }]}>Order Status</Text>
         {isCancelled ? (
           <View style={styles.cancelledRow}>
-            <Text style={styles.cancelledIcon}>✕</Text>
-            <View>
+            <X size={18} color={C.error} strokeWidth={2.5} />
+            <View style={{ flex: 1 }}>
               <Text style={[T.h4, { color: C.error }]}>Order Cancelled</Text>
-              <Text style={[T.caption, { color: C.muted }]}>This order has been cancelled by the customer.</Text>
+              <Text style={[T.caption, { color: C.muted, marginTop: 2 }]}>This order has been cancelled by the customer.</Text>
             </View>
           </View>
         ) : (
           ORDER_FLOW.map((step, i) => {
-          const isDone = i <= currentIdx;
-          const isActive = i === currentIdx;
-          const isLast = i === ORDER_FLOW.length - 1;
-          return (
-            <View key={step.key} style={styles.timelineRow}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending, isActive && styles.timelineDotActive]}>
-                  {isDone && <Text style={styles.timelineDotText}>{isActive ? step.icon : '✓'}</Text>}
+            const isDone = i <= currentIdx;
+            const isActive = i === currentIdx;
+            const isLast = i === ORDER_FLOW.length - 1;
+            const IconComponent = isActive ? STEP_ICONS[step.key] : Check;
+            return (
+              <View key={step.key} style={styles.timelineRow}>
+                <View style={styles.timelineLeft}>
+                  <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending, isActive && styles.timelineDotActive]}>
+                    {isDone && <IconComponent size={14} color={isActive ? C.white : C.rose} strokeWidth={2.5} />}
+                  </View>
+                  {!isLast && <View style={[styles.timelineLine, isDone && i < currentIdx && styles.timelineLineDone]} />}
                 </View>
-                {!isLast && <View style={[styles.timelineLine, isDone && i < currentIdx && styles.timelineLineDone]} />}
+                <View style={[styles.timelineContent, isActive && styles.timelineContentActive]}>
+                  <Text style={[T.h4, !isDone && { color: C.muted }]}>{step.label}</Text>
+                  {isActive && <Text style={[T.caption, { color: C.rose, marginTop: 2 }]}>Current status</Text>}
+                </View>
               </View>
-              <View style={[styles.timelineContent, isActive && styles.timelineContentActive]}>
-                <Text style={[T.h4, !isDone && { color: C.muted }]}>{step.label}</Text>
-                {isActive && <Text style={[T.caption, { color: C.rose, marginTop: 2 }]}>Current status</Text>}
-              </View>
-            </View>
-          );
-        }))}
+            );
+          })
+        )}
       </View>
 
       {/* Items */}
@@ -221,7 +234,12 @@ export function OrderDetailScreen() {
           <View style={styles.starRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
-                <Text style={[styles.star, star <= reviewRating && styles.starActive]}>★</Text>
+                <Star
+                  size={24}
+                  color={star <= reviewRating ? '#f59e0b' : C.border}
+                  fill={star <= reviewRating ? '#f59e0b' : 'transparent'}
+                  strokeWidth={2}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -235,15 +253,15 @@ export function OrderDetailScreen() {
             onChangeText={setReviewComment}
           />
           <View style={styles.reviewActions}>
-            <TouchableOpacity onPress={() => setReviewProductId(null)}>
+            <TouchableOpacity onPress={() => setReviewProductId(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={[T.caption, { color: C.muted }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[BTN.primary, reviewSubmitting && BTN.disabled]}
+              style={[BTN.primary, { height: 36, paddingHorizontal: S.md }, reviewSubmitting && BTN.disabled]}
               onPress={() => reviewProductId && handleSubmitReview(reviewProductId)}
               disabled={reviewSubmitting}
             >
-              <Text style={BTN.primaryText}>{reviewSubmitting ? 'Submitting…' : 'Submit Review'}</Text>
+              <Text style={[BTN.primaryText, { fontSize: 13 }]}>{reviewSubmitting ? 'Submitting…' : 'Submit Review'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -287,7 +305,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    backgroundColor: C.card2, borderRadius: R.xl, padding: S.md,
+    backgroundColor: C.card2, borderRadius: R.lg, padding: S.md,
     borderWidth: 1, borderColor: C.border,
   },
   amountBadge: { alignItems: 'flex-end' },
@@ -296,24 +314,22 @@ const styles = StyleSheet.create({
   timelineDot: {
     width: 32, height: 32, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
   },
   timelineDotPending: { borderColor: C.border, backgroundColor: C.white },
   timelineDotDone: { borderColor: C.rose, backgroundColor: C.card2 },
   timelineDotActive: { borderColor: C.rose, backgroundColor: C.rose },
-  timelineDotText: { fontSize: 13 },
   timelineLine: { flex: 1, width: 2, backgroundColor: C.border, marginVertical: 2 },
   timelineLineDone: { backgroundColor: C.pink },
   timelineContent: { flex: 1, paddingTop: 6, paddingBottom: S.md, paddingLeft: S.xs },
   timelineContentActive: { backgroundColor: C.card2, borderRadius: R.md, paddingLeft: S.sm, marginLeft: -S.xs },
   cancelButton: {
-    borderWidth: 1.5, borderColor: C.error, borderRadius: R.xl,
+    borderWidth: 1, borderColor: C.error, borderRadius: R.lg,
     paddingVertical: S.sm, alignItems: 'center', backgroundColor: '#fef2f2',
   },
   cancelButtonDisabled: { opacity: 0.6 },
   cancelButtonText: { color: C.error, fontWeight: '700', fontSize: 14 },
   cancelledRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, paddingVertical: S.sm },
-  cancelledIcon: { fontSize: 18, color: C.error, fontWeight: '800' },
   itemRow: { flexDirection: 'column', paddingVertical: S.sm, gap: S.xs },
   itemRowBorder: { borderBottomWidth: 1, borderColor: C.border },
   itemRowLeft: { flexDirection: 'row', alignItems: 'center', gap: S.xs },
@@ -321,20 +337,18 @@ const styles = StyleSheet.create({
   itemDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.pink },
   reviewButton: {
     alignSelf: 'flex-start', marginTop: S.xs,
-    borderWidth: 1.5, borderColor: C.rose, borderRadius: R.md,
+    borderWidth: 1, borderColor: C.rose, borderRadius: R.md,
     paddingHorizontal: S.sm, paddingVertical: 4,
   },
   reviewButtonText: { color: C.rose, fontSize: 12, fontWeight: '700' },
   starRow: { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
-  star: { fontSize: 28, color: C.border },
-  starActive: { color: '#f59e0b' },
   reviewInput: {
     ...INPUT.base, minHeight: 80, textAlignVertical: 'top', paddingTop: S.sm,
   },
   reviewActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: S.sm },
   otpCard: {
-    backgroundColor: C.card2, borderRadius: R.xl,
-    borderWidth: 1.5, borderColor: C.pink,
+    backgroundColor: C.card2, borderRadius: R.lg,
+    borderWidth: 1, borderColor: C.pink,
     padding: S.lg, alignItems: 'center',
   },
   otpCode: {

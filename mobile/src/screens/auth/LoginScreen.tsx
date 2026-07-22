@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -15,9 +15,15 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
 
   async function handleSubmit() {
     if (submitting) return;
+    if (!email.trim() || !password) {
+      Alert.alert('Validation Error', 'Email and password are required.');
+      return;
+    }
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
+    } catch (err) {
+      // Error already shown via Alert in AuthContext
     } finally {
       setSubmitting(false);
     }

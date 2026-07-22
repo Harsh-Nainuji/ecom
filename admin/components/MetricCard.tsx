@@ -10,22 +10,24 @@ interface MetricCardProps {
 }
 
 const accentMap: Record<NonNullable<MetricCardProps['accent']>, string> = {
-  emerald: 'text-emerald-500 bg-emerald-50 border-emerald-100',
-  amber: 'text-amber-500 bg-amber-50 border-amber-100',
-  sky: 'text-sky-500 bg-sky-50 border-sky-100',
-  rose: 'text-rose-500 bg-rose-50 border-rose-100',
-  slate: 'text-slate-500 bg-slate-50 border-slate-100',
+  emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+  amber: 'text-[#a0522d] bg-[#FFF9F0] border-[#F2E5D5]',
+  sky: 'text-sky-600 bg-sky-50 border-sky-100',
+  rose: 'text-[#c2185b] bg-[#FFF0F2] border-[#F7E4E6]',
+  slate: 'text-slate-600 bg-slate-50 border-slate-100',
 };
 
 export function MetricCard({ label, value, sublabel, icon, accent = 'slate' }: MetricCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white/90 p-6 shadow-sm">
+    <div className="rounded-2xl border border-[#F7E4E6] bg-white p-5.5 shadow-sm premium-shadow transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{label}</p>
-        <div className={cn('rounded-full border px-3 py-1 text-xs font-semibold', accentMap[accent])}>{icon}</div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{label}</p>
+        <div className={cn('rounded-xl border p-2 flex items-center justify-center', accentMap[accent])}>
+          {icon}
+        </div>
       </div>
-      <p className="mt-5 text-4xl font-semibold text-slate-900">{value}</p>
-      {sublabel ? <p className="mt-2 text-sm text-slate-500">{sublabel}</p> : null}
+      <p className="mt-4 text-3xl font-extrabold text-[#1A1A2D] tracking-tight editorial-header">{value}</p>
+      {sublabel ? <p className="mt-1 text-[11px] font-medium text-slate-400">{sublabel}</p> : null}
     </div>
   );
 }

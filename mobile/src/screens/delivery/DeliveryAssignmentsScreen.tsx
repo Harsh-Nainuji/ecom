@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Bike, Phone, Map } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { fetchDeliveryAssignments } from '../../lib/api/delivery';
@@ -66,6 +67,7 @@ export function DeliveryAssignmentsScreen() {
       contentContainerStyle={styles.content}
       refreshing={loading}
       onRefresh={load}
+      showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <View style={styles.header}>
           <View>
@@ -80,7 +82,7 @@ export function DeliveryAssignmentsScreen() {
           <ActivityIndicator style={{ marginTop: 80 }} color={C.pink} />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🛵</Text>
+            <Bike size={48} color={C.pink} strokeWidth={1.5} />
             <Text style={T.h4}>No assignments yet</Text>
             <Text style={[T.caption, { color: C.muted }]}>Refresh to check for new deliveries.</Text>
           </View>
@@ -129,7 +131,10 @@ export function DeliveryAssignmentsScreen() {
                   activeOpacity={0.8}
                   disabled={!item.phone}
                 >
-                  <Text style={styles.callBtnText}>📞  Call</Text>
+                  <View style={styles.btnContent}>
+                    <Phone size={14} color={C.text2} strokeWidth={2} />
+                    <Text style={styles.callBtnText}>Call</Text>
+                  </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.navBtn}
@@ -137,7 +142,10 @@ export function DeliveryAssignmentsScreen() {
                   activeOpacity={0.8}
                   disabled={!item.address}
                 >
-                  <Text style={styles.navBtnText}>🗺  Navigate</Text>
+                  <View style={styles.btnContent}>
+                    <Map size={14} color={C.text2} strokeWidth={2} />
+                    <Text style={styles.navBtnText}>Navigate</Text>
+                  </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.otpBtn} activeOpacity={0.8} onPress={() => navigation.navigate('DeliveryDetail', { orderId: item.id })}>
                   <Text style={styles.otpBtnText}>Enter OTP</Text>
@@ -156,10 +164,10 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: S.lg, paddingBottom: S.xxl, gap: S.sm },
   header: { paddingTop: S.lg, paddingBottom: S.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   card: {
-    backgroundColor: C.white, borderRadius: R.xl,
+    backgroundColor: C.white, borderRadius: R.lg,
     borderWidth: 1, borderColor: C.border,
     padding: S.md, gap: S.sm,
-    shadowColor: C.pink, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+    shadowColor: C.pink, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
   },
   cardDone: { opacity: 0.6 },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -170,12 +178,12 @@ const styles = StyleSheet.create({
   addressBlock: { backgroundColor: C.surface, borderRadius: R.md, padding: S.sm, gap: 3, borderWidth: 1, borderColor: C.border },
   amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: S.xs, borderTopWidth: 1, borderColor: C.border },
   actionsRow: { flexDirection: 'row', gap: S.sm },
-  callBtn: { flex: 1, height: 44, borderRadius: R.lg, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
+  callBtn: { flex: 1, height: 44, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
   callBtnText: { fontSize: 13, fontWeight: '700', color: C.text2 },
-  navBtn: { flex: 1, height: 44, borderRadius: R.lg, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
+  navBtn: { flex: 1, height: 44, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
   navBtnText: { fontSize: 13, fontWeight: '700', color: C.text2 },
   otpBtn: { ...BTN.primary, flex: 1, height: 44 },
   otpBtnText: { ...BTN.primaryText, fontSize: 13 },
+  btnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   emptyContainer: { alignItems: 'center', paddingTop: 80, gap: S.sm },
-  emptyEmoji: { fontSize: 48 },
 });

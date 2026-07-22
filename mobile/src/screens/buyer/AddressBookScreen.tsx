@@ -38,6 +38,7 @@ export function AddressBookScreen() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Address | null>(null);
   const [form, setForm] = useState<Address>(emptyForm);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -68,6 +69,7 @@ export function AddressBookScreen() {
   const resetForm = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFocusedField(null);
   };
 
   const handleSave = async () => {
@@ -127,17 +129,19 @@ export function AddressBookScreen() {
 
   const renderForm = () => (
     <View style={styles.formCard}>
-      <Text style={T.h4}>{editing ? 'Edit Address' : 'New Address'}</Text>
+      <Text style={[T.h3, { marginBottom: S.xs }]}>{editing ? 'Edit Address' : 'New Address'}</Text>
       {['label', 'recipient_name', 'phone', 'line1', 'line2', 'city', 'state', 'postal_code'].map((key) => (
-        <View key={key}>
+        <View key={key} style={{ marginBottom: S.xs }}>
           <Text style={INPUT.label}>{key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</Text>
           <TextInput
-            style={INPUT.base}
+            style={[INPUT.base, focusedField === key && INPUT.focused]}
             placeholderTextColor={C.muted}
             value={(form as any)[key] ?? ''}
             onChangeText={(text) => setForm((f) => ({ ...f, [key]: text || null }))}
             keyboardType={key === 'phone' || key === 'postal_code' ? 'phone-pad' : 'default'}
             autoCapitalize={key === 'postal_code' ? 'characters' : 'sentences'}
+            onFocus={() => setFocusedField(key)}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
       ))}
@@ -149,19 +153,19 @@ export function AddressBookScreen() {
         <View style={[styles.radio, form.is_default && styles.radioActive]}>
           {form.is_default && <View style={styles.radioDot} />}
         </View>
-        <Text style={T.body}>Set as default address</Text>
+        <Text style={[T.bodySmall, { color: C.text2 }]}>Set as default address</Text>
       </TouchableOpacity>
       <View style={styles.formActions}>
-        <TouchableOpacity style={BTN.secondary} onPress={resetForm} activeOpacity={0.8}>
+        <TouchableOpacity style={[BTN.secondary, { flex: 1 }]} onPress={resetForm} activeOpacity={0.8}>
           <Text style={BTN.secondaryText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[BTN.primary, saving && BTN.disabled]}
+          style={[BTN.primary, { flex: 1 }, saving && BTN.disabled]}
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}
         >
-          <Text style={BTN.primaryText}>{saving ? 'Saving…' : 'Save Address'}</Text>
+          <Text style={BTN.primaryText}>{saving ? 'Saving…' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -172,7 +176,7 @@ export function AddressBookScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Text style={styles.heading}>Address Book</Text>
         {editing || form.recipient_name ? (
           renderForm()
@@ -189,11 +193,11 @@ export function AddressBookScreen() {
             data={addresses}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            contentContainerStyle={{ paddingTop: S.md }}
+            contentContainerStyle={{ paddingTop: S.xs }}
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={T.h4} numberOfLines={1}>
+                  <Text style={[T.h4, { flex: 1 }]} numberOfLines={1}>
                     {item.label ? `${item.label} · ` : ''}
                     {item.recipient_name}
                   </Text>
@@ -211,14 +215,14 @@ export function AddressBookScreen() {
                 </Text>
                 <View style={styles.actions}>
                   {!item.is_default && (
-                    <TouchableOpacity onPress={() => handleSetDefault(item.id)}>
+                    <TouchableOpacity onPress={() => handleSetDefault(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Text style={styles.link}>Set Default</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity onPress={() => startEdit(item)}>
+                  <TouchableOpacity onPress={() => startEdit(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.link}>Edit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(item.id)}>
+                  <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={[styles.link, { color: C.error }]}>Delete</Text>
                   </TouchableOpacity>
                 </View>
@@ -237,12 +241,12 @@ export function AddressBookScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.white },
   scroll: { paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.xxl, gap: S.md },
-  heading: { ...T.h2, marginBottom: S.sm },
+  heading: { ...T.h2, marginBottom: S.xs },
   addBtn: { ...BTN.primary, alignItems: 'center' },
   formCard: {
     gap: S.sm,
     padding: S.md,
-    borderRadius: R.xl,
+    borderRadius: R.lg,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
   },
   defaultRowActive: {},
   radio: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.border,
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: C.border,
     alignItems: 'center', justifyContent: 'center',
   },
   radioActive: { borderColor: C.rose },
@@ -262,14 +266,14 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: S.md,
-    borderRadius: R.xl,
+    borderRadius: R.lg,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
     marginBottom: S.sm,
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.sm, marginBottom: 2,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: S.sm, marginBottom: 4,
   },
   defaultBadge: {
     fontSize: 10, fontWeight: '700', color: C.rose,
@@ -277,7 +281,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: S.sm, paddingVertical: 2,
   },
   actions: {
-    flexDirection: 'row', gap: S.md, marginTop: S.sm,
+    flexDirection: 'row', gap: S.lg, marginTop: S.sm,
   },
   link: {
     ...T.caption, color: C.rose, fontWeight: '700',

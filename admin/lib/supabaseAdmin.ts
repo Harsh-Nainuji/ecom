@@ -11,11 +11,16 @@ if (!supabaseServiceRoleKey) {
   throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable.');
 }
 
-export function getSupabaseAdmin() {
-  return createClient(supabaseUrl as string, supabaseServiceRoleKey as string, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+let supabaseAdminInstance: any = null;
+
+export function getSupabaseAdmin(): any {
+  if (!supabaseAdminInstance) {
+    supabaseAdminInstance = createClient(supabaseUrl as string, supabaseServiceRoleKey as string, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+  return supabaseAdminInstance;
 }

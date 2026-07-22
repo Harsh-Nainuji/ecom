@@ -11,6 +11,7 @@ import {
 import RazorpayCheckout from 'react-native-razorpay';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Lock, RotateCcw } from 'lucide-react-native';
 import { fetchAddresses, fetchCart, createOrder, createRazorpayOrder } from '../../lib/api/buyer';
 import type { Address, CartItemWithProduct } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
@@ -158,13 +159,20 @@ export function CheckoutScreen() {
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery</Text><Text style={delivery === 0 ? styles.summaryFree : styles.summaryAmt}>{delivery === 0 ? 'FREE' : `₹${delivery}`}</Text></View>
         <View style={[styles.summaryRow, styles.summaryTotal]}><Text style={styles.totalLabel}>Total</Text><Text style={styles.totalAmt}>₹{total.toFixed(0)}</Text></View>
         <View style={styles.trustRow}>
-          <Text style={styles.trustText}>🔒  Secured by Razorpay</Text>
-          <Text style={styles.trustText}>↩️  7-day returns</Text>
+          <View style={styles.trustItem}>
+            <Lock size={12} color={C.muted} strokeWidth={2} />
+            <Text style={styles.trustText}>Secured by Razorpay</Text>
+          </View>
+          <View style={styles.trustItem}>
+            <RotateCcw size={12} color={C.muted} strokeWidth={2} />
+            <Text style={styles.trustText}>7-day returns</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={[styles.orderButton, (!selected || placing) && styles.orderButtonDisabled]}
           disabled={!selected || placing}
           onPress={handlePlaceOrder}
+          activeOpacity={0.9}
         >
           {placing ? <ActivityIndicator color="#fff" /> : <Text style={styles.orderText}>Pay ₹{total.toFixed(0)} · Place Order</Text>}
         </TouchableOpacity>
@@ -177,10 +185,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.white },
   listContent: { paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.sm },
   sectionTitle: { ...T.h3, marginBottom: S.md },
-  addressCard: { padding: S.md, borderRadius: R.xl, marginBottom: S.sm, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.white },
+  addressCard: { padding: S.md, borderRadius: R.lg, marginBottom: S.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
   addressCardActive: { borderColor: C.rose, backgroundColor: C.card2 },
   addressRadioRow: { flexDirection: 'row', gap: S.md, alignItems: 'flex-start' },
-  radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  radioOuter: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   radioOuterActive: { borderColor: C.rose },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.rose },
   addressName: { ...T.h4, marginBottom: 2 },
@@ -196,8 +204,10 @@ const styles = StyleSheet.create({
   totalLabel: { ...T.h3 },
   totalAmt: { ...T.priceLg },
   trustRow: { flexDirection: 'row', justifyContent: 'center', gap: S.xl, paddingVertical: S.xs },
-  trustText: { ...T.caption },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  trustText: { ...T.caption, color: C.muted },
   orderButton: { ...BTN.primary, marginTop: S.xs },
   orderButtonDisabled: { ...BTN.primary, ...BTN.disabled },
   orderText: { ...BTN.primaryText },
 });
+

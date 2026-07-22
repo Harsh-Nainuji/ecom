@@ -1,15 +1,16 @@
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
+import { Plus, Package, ClipboardList, CreditCard, AlertTriangle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { fetchSellerDashboardStats, type SellerDashboardStats } from '../../lib/api/seller';
 import { C, S, R, T } from '../../lib/theme';
 
 const QUICK_ACTIONS = [
-  { label: 'Add Product', icon: '➕' },
-  { label: 'View Orders', icon: '📦' },
-  { label: 'My Listings', icon: '📋' },
-  { label: 'Payouts', icon: '💳' },
+  { label: 'Add Product', icon: Plus },
+  { label: 'View Orders', icon: Package },
+  { label: 'My Listings', icon: ClipboardList },
+  { label: 'Payouts', icon: CreditCard },
 ];
 
 export function SellerDashboardScreen() {
@@ -89,12 +90,15 @@ export function SellerDashboardScreen() {
       {/* Quick Actions */}
       <Text style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.actionsRow}>
-        {QUICK_ACTIONS.map((a) => (
-          <TouchableOpacity key={a.label} style={styles.actionBtn} activeOpacity={0.8} onPress={() => handleQuickAction(a.label)}>
-            <Text style={styles.actionIcon}>{a.icon}</Text>
-            <Text style={styles.actionLabel}>{a.label}</Text>
-          </TouchableOpacity>
-        ))}
+        {QUICK_ACTIONS.map((a) => {
+          const Icon = a.icon;
+          return (
+            <TouchableOpacity key={a.label} style={styles.actionBtn} activeOpacity={0.8} onPress={() => handleQuickAction(a.label)}>
+              <Icon size={20} color={C.rose} strokeWidth={2} />
+              <Text style={styles.actionLabel}>{a.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Recent Orders */}
@@ -129,7 +133,7 @@ export function SellerDashboardScreen() {
 
       {/* Stock Alert */}
       <View style={styles.alertCard}>
-        <Text style={styles.alertIcon}>⚠️</Text>
+        <AlertTriangle size={24} color={C.warning} strokeWidth={2} />
         <View style={{ flex: 1 }}>
           <Text style={[T.h4, { color: C.warning }]}>Low Stock Alert</Text>
           <Text style={[T.caption, { marginTop: 2 }]}>
@@ -165,15 +169,13 @@ const styles = StyleSheet.create({
   sectionTitle: { ...T.h4, marginTop: S.xs },
   actionsRow: { flexDirection: 'row', gap: S.sm },
   actionBtn: { flex: 1, alignItems: 'center', backgroundColor: C.surface, borderRadius: R.lg, paddingVertical: S.md, borderWidth: 1, borderColor: C.border, gap: S.xs },
-  actionIcon: { fontSize: 22 },
   actionLabel: { ...T.caption, fontWeight: '700', textAlign: 'center' },
-  ordersCard: { borderRadius: R.xl, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  ordersCard: { borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
   orderRow: { flexDirection: 'row', alignItems: 'center', gap: S.sm, padding: S.md, backgroundColor: C.white },
   orderRowBorder: { borderBottomWidth: 1, borderColor: C.border },
   statusPill: { borderRadius: R.sm, paddingHorizontal: S.xs + 2, paddingVertical: 2 },
   statusText: { fontSize: 11, fontWeight: '700' },
   alertCard: { flexDirection: 'row', alignItems: 'center', gap: S.md, backgroundColor: '#fffbeb', borderRadius: R.lg, padding: S.md, borderWidth: 1, borderColor: '#fde68a' },
-  alertIcon: { fontSize: 24 },
   emptyOrders: { padding: S.md, alignItems: 'center' },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white },
 });

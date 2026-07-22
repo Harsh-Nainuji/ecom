@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { Phone, Map, Clipboard } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import type { DeliveryStackParamList } from '../../navigation/DeliveryStack';
@@ -64,6 +65,20 @@ export function DeliveryDetailScreen() {
     }
   }
 
+  async function handleCustomerUnavailable() {
+    if (!order) return;
+    setActionLoading(true);
+    try {
+      await updateDeliveryOrderStatus(order.id, 'shipped', 'failed');
+      await load();
+      Alert.alert('Delivery Attempt Failed', 'Marked customer as unavailable. You can retry delivery when ready.');
+    } catch (err) {
+      Alert.alert('Update failed', (err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleVerify() {
     if (!order) return;
     if (otp.length < 4) {
@@ -76,7 +91,7 @@ export function DeliveryDetailScreen() {
       await verifyDeliveryOtp(order.id, otp);
       setOtp('');
       await load();
-      Alert.alert('✅ Delivery Confirmed', 'Order marked as delivered.');
+      Alert.alert('Delivery Confirmed', 'Order marked as delivered.');
     } catch (err) {
       setOtpError((err as Error).message);
     } finally {
@@ -154,7 +169,10 @@ export function DeliveryDetailScreen() {
             onPress={() => order.shipping_address.phone && Linking.openURL(`tel:${order.shipping_address.phone}`)}
             activeOpacity={0.8}
           >
-            <Text style={styles.callBtnText}>📞  Call Customer</Text>
+            <View style={styles.btnContent}>
+              <Phone size={14} color={C.rose} strokeWidth={2} />
+              <Text style={styles.callBtnText}>Call Customer</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -168,19 +186,24 @@ export function DeliveryDetailScreen() {
             onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(addressLines.join(', '))}`)}
             activeOpacity={0.8}
           >
-            <Text style={styles.navBtnText}>🗺  Open in Maps</Text>
+            <View style={styles.btnContent}>
+              <Map size={14} color={C.text2} strokeWidth={2} />
+              <Text style={styles.navBtnText}>Open in Maps</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
 
-      {order.delivery_status === 'assigned' && (
+      {(order.delivery_status === 'assigned' || order.delivery_status === 'failed') && (
         <TouchableOpacity
           style={[BTN.primary, { marginHorizontal: S.lg, marginBottom: S.sm }]}
           onPress={handleStartDelivery}
           disabled={actionLoading}
           activeOpacity={0.9}
         >
-          <Text style={BTN.primaryText}>{actionLoading ? 'Updating…' : 'Start Delivery'}</Text>
+          <Text style={BTN.primaryText}>
+            {actionLoading ? 'Updating…' : order.delivery_status === 'failed' ? 'Retry Delivery' : 'Start Delivery'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -188,7 +211,10 @@ export function DeliveryDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>DELIVERY OTP VERIFICATION</Text>
           <View style={styles.card}>
-            <Text style={[T.bodySmall, { color: C.muted }]}>📝  Ask the customer for their delivery OTP to confirm handover.</Text>
+            <View style={styles.tipRow}>
+              <Clipboard size={14} color={C.muted} strokeWidth={2} />
+              <Text style={[T.bodySmall, { color: C.muted, flex: 1 }]}>Ask the customer for their delivery OTP to confirm handover.</Text>
+            </View>
             <View>
               <Text style={INPUT.label}>Enter Customer OTP</Text>
               <TextInput
@@ -213,6 +239,14 @@ export function DeliveryDetailScreen() {
             >
               <Text style={BTN.primaryText}>{actionLoading ? 'Verifying…' : 'Confirm OTP & Complete'}</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[BTN.secondary, { marginTop: S.sm }]}
+              onPress={handleCustomerUnavailable}
+              disabled={actionLoading}
+              activeOpacity={0.9}
+            >
+              <Text style={BTN.secondaryText}>{actionLoading ? 'Updating…' : 'Mark Customer Unavailable'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -233,7 +267,7 @@ const styles = StyleSheet.create({
   statusBannerText: { fontSize: 15, fontWeight: '800', color: C.text },
   section: { gap: S.xs },
   sectionTitle: { ...T.label, paddingLeft: S.xs },
-  card: { backgroundColor: C.white, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, padding: S.md, gap: S.sm },
+  card: { backgroundColor: C.white, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: S.md, gap: S.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   rowBorder: { paddingTop: S.sm, borderTopWidth: 1, borderColor: C.border },
   callBtn: { backgroundColor: C.card2, borderRadius: R.md, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.pink },
@@ -241,4 +275,6 @@ const styles = StyleSheet.create({
   navBtn: { backgroundColor: C.surface, borderRadius: R.md, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
   navBtnText: { fontSize: 14, fontWeight: '700', color: C.text2 },
   otpInput: { textAlign: 'center', fontSize: 24, fontWeight: '800', letterSpacing: 8, height: 64 },
+  btnContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  tipRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, paddingRight: S.sm },
 });

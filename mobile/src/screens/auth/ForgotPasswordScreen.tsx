@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
-import { C, S, BTN, INPUT, T } from '../../lib/theme';
+import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
 
 export function ForgotPasswordScreen({ navigation }: NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>) {
   const { session } = useAuth();
@@ -33,7 +34,10 @@ export function ForgotPasswordScreen({ navigation }: NativeStackScreenProps<Auth
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <View style={styles.backRow}>
+            <ArrowLeft size={16} color={C.rose} strokeWidth={2.5} />
+            <Text style={styles.backText}>Back</Text>
+          </View>
         </Pressable>
 
         <View style={styles.brandDot} />
@@ -75,9 +79,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.white },
   scroll: { paddingHorizontal: S.lg, paddingTop: S.xl, paddingBottom: S.xl, gap: S.md },
   backBtn: { marginBottom: S.lg },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { ...T.link, fontSize: 15 },
   brandDot: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.rose, marginBottom: S.md },
-  messageBanner: { borderRadius: 12, padding: S.md, borderWidth: 1 },
+  messageBanner: { borderRadius: R.lg, padding: S.md, borderWidth: 1 },
   messageBannerSuccess: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
   messageBannerError: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
   messageText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },

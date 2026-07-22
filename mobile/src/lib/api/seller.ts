@@ -121,6 +121,14 @@ export async function upsertSellerProduct(
   return productId;
 }
 
+export async function deleteSellerProduct(productId: string): Promise<void> {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId);
+  if (error) throw new Error(error.message);
+}
+
 export async function adjustVariantStock(variantId: string, delta: number) {
   const { data, error } = await supabase
     .from('product_variants')

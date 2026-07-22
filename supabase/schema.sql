@@ -30,6 +30,7 @@ create table if not exists public.profiles (
   full_name text,
   phone text,
   avatar_url text,
+  push_token text,
   is_blocked boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -62,6 +63,8 @@ create table if not exists public.seller_profiles (
   mobile text not null,
   email text not null,
   gst_number text,
+  aadhar_number text,
+  pan_number text,
   business_address text,
   bank_account_number text,
   bank_ifsc text,
@@ -281,7 +284,7 @@ begin
     v_code := lpad((floor(random() * 900000) + 100000)::text, 6, '0');
 
     insert into public.delivery_otps (order_id, otp_code, expires_at, used, generated_at, attempt_count)
-    values (new.id, v_code, now() + interval '2 hours', false, now(), 0)
+    values (new.id, v_code, now() + interval '24 hours', false, now(), 0)
     on conflict (order_id) do update
       set otp_code = excluded.otp_code,
           expires_at = excluded.expires_at,

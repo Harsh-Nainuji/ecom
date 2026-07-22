@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { ShoppingCart, Store } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,10 +18,15 @@ export function RegisterScreen() {
 
   async function handleSubmit() {
     if (submitting) return;
-    if (!fullName.trim() || !email.trim() || !password) return;
+    if (!fullName.trim() || !email.trim() || !password) {
+      Alert.alert('Validation Error', 'All fields are required.');
+      return;
+    }
     setSubmitting(true);
     try {
       await signUp({ email: email.trim(), password, fullName: fullName.trim(), role });
+    } catch (err) {
+      // Error already shown via Alert in AuthContext
     } finally {
       setSubmitting(false);
     }
@@ -48,7 +54,7 @@ export function RegisterScreen() {
             onPress={() => setRole('buyer')}
             activeOpacity={0.8}
           >
-            <Text style={styles.roleEmoji}>🛒</Text>
+            <ShoppingCart size={24} color={role === 'buyer' ? C.rose : C.muted} strokeWidth={1.5} />
             <Text style={[styles.roleLabel, role === 'buyer' && styles.roleLabelActive]}>Buyer</Text>
             <Text style={[styles.roleDesc, role === 'buyer' && { color: C.rose }]}>Shop products</Text>
           </TouchableOpacity>
@@ -57,7 +63,7 @@ export function RegisterScreen() {
             onPress={() => setRole('seller')}
             activeOpacity={0.8}
           >
-            <Text style={styles.roleEmoji}>🏪</Text>
+            <Store size={24} color={role === 'seller' ? '#a0522d' : C.muted} strokeWidth={1.5} />
             <Text style={[styles.roleLabel, role === 'seller' && styles.roleLabelActiveSeller]}>Seller</Text>
             <Text style={[styles.roleDesc, role === 'seller' && { color: '#a0522d' }]}>Sell products</Text>
           </TouchableOpacity>
@@ -133,13 +139,12 @@ const styles = StyleSheet.create({
   brand: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: 1.5 },
   roleRow: { flexDirection: 'row', gap: S.sm },
   roleBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: C.border,
+    flex: 1, borderWidth: 1, borderColor: C.border,
     borderRadius: R.lg, paddingVertical: S.md,
     alignItems: 'center', gap: S.xs, backgroundColor: C.surface,
   },
   roleBtnActive: { borderColor: C.rose, backgroundColor: C.card2 },
   roleBtnActiveSeller: { borderColor: C.beige, backgroundColor: C.card1 },
-  roleEmoji: { fontSize: 24 },
   roleLabel: { fontSize: 14, fontWeight: '700', color: C.muted },
   roleLabelActive: { color: C.rose },
   roleLabelActiveSeller: { color: '#a0522d' },

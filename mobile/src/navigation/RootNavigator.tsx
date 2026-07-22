@@ -4,6 +4,9 @@ import { AuthNavigator } from './AuthNavigator';
 import { BuyerStack } from './BuyerStack';
 import { SellerTabs } from './SellerTabs';
 import { DeliveryStack } from './DeliveryStack';
+import { SellerRegistrationScreen } from '../screens/seller/SellerRegistrationScreen';
+import { SellerPendingScreen } from '../screens/seller/SellerPendingScreen';
+import { SellerSuspendedScreen } from '../screens/seller/SellerSuspendedScreen';
 import { useAuth } from '../context/AuthContext';
 
 function LoadingScreen() {
@@ -14,26 +17,8 @@ function LoadingScreen() {
   );
 }
 
-function RoleNavigator() {
-  const { profile } = useAuth();
-
-  if (!profile) {
-    return <LoadingScreen />;
-  }
-
-  switch (profile.role) {
-    case 'seller':
-      return <SellerTabs />;
-    case 'delivery':
-      return <DeliveryStack />;
-    case 'buyer':
-    default:
-      return <BuyerStack />;
-  }
-}
-
 export function RootNavigator() {
-  const { loading, session, profile } = useAuth();
+  const { loading, session, profile, sellerProfile } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
@@ -48,6 +33,15 @@ export function RootNavigator() {
     }
     switch (profile.role) {
       case 'seller':
+        if (!sellerProfile) {
+          return <SellerRegistrationScreen />;
+        }
+        if (sellerProfile.status === 'pending') {
+          return <SellerPendingScreen />;
+        }
+        if (sellerProfile.status === 'suspended' || sellerProfile.status === 'rejected') {
+          return <SellerSuspendedScreen reason={sellerProfile.rejected_reason} />;
+        }
         return <SellerTabs />;
       case 'delivery':
         return <DeliveryStack />;

@@ -11,14 +11,17 @@ import { Alert } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Profile } from '../types/profile';
+import { registerForPushNotificationsAsync } from '../lib/notifications';
 
 interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
+  sellerProfile: any | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (params: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' }) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,10 +40,24 @@ async function fetchProfile(userId: string) {
   return data as Profile;
 }
 
-async function ensureProfile(userId: string, fullName?: string | null) {
+async function fetchSellerProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('seller_profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Failed to fetch seller profile:', error.message);
+    return null;
+  }
+  return data;
+}
+
+async function ensureProfile(userId: string, fullName?: string | null, role?: string | null) {
   const { error } = await supabase
     .from('profiles')
-    .upsert({ id: userId, full_name: fullName, role: 'buyer' }, { onConflict: 'id' });
+    .upsert({ id: userId, full_name: fullName, role: (role as any) ?? 'buyer' }, { onConflict: 'id' });
 
   if (error) {
     // eslint-disable-next-line no-console
@@ -51,6 +68,7 @@ async function ensureProfile(userId: string, fullName?: string | null) {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sellerProfile, setSellerProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,20 +86,46 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (!session?.user) return;
+    const existing = await fetchProfile(session.user.id);
+    setProfile(existing);
+
+    if (existing?.role === 'seller') {
+      const sellerData = await fetchSellerProfile(session.user.id);
+      setSellerProfile(sellerData);
+    } else {
+      setSellerProfile(null);
+    }
+  }, [session]);
+
   useEffect(() => {
     async function loadProfile() {
       if (!session?.user) {
         setProfile(null);
+        setSellerProfile(null);
         return;
       }
 
-      const existing = await fetchProfile(session.user.id);
+      let existing = await fetchProfile(session.user.id);
       if (!existing) {
-        await ensureProfile(session.user.id, session.user.user_metadata?.full_name);
-        const created = await fetchProfile(session.user.id);
-        setProfile(created);
+        await ensureProfile(
+          session.user.id,
+          session.user.user_metadata?.full_name,
+          session.user.user_metadata?.role
+        );
+        existing = await fetchProfile(session.user.id);
+      }
+      setProfile(existing);
+      
+      // Register push token for notifications
+      registerForPushNotificationsAsync(session.user.id);
+
+      if (existing?.role === 'seller') {
+        const sellerData = await fetchSellerProfile(session.user.id);
+        setSellerProfile(sellerData);
       } else {
-        setProfile(existing);
+        setSellerProfile(null);
       }
     }
 
@@ -102,7 +146,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: {
+            full_name: fullName,
+            role: role ?? 'buyer',
+          },
         },
       });
 
@@ -111,11 +158,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw error;
       }
 
-      if (data.session?.user) {
+      if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .upsert({ id: data.session.user.id, full_name: fullName, role: role ?? 'buyer' }, { onConflict: 'id' });
+          .upsert({ id: data.user.id, full_name: fullName, role: role ?? 'buyer' }, { onConflict: 'id' });
         if (profileError) console.warn('Failed to upsert profile', profileError.message);
+      }
+
+      if (!data.session) {
+        Alert.alert(
+          'Verification Email Sent',
+          'Please verify your email address by clicking the link sent to your inbox, then sign in.'
+        );
       }
     },
     [],
@@ -132,12 +186,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       session,
       profile,
+      sellerProfile,
       loading,
       signIn,
       signUp,
       signOut,
+      refreshProfile,
     }),
-    [session, profile, loading, signIn, signUp, signOut],
+    [session, profile, sellerProfile, loading, signIn, signUp, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

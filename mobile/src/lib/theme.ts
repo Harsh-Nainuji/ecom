@@ -58,8 +58,8 @@ export const T = StyleSheet.create({
 export const BTN = StyleSheet.create({
   primary: {
     backgroundColor: C.rose,
-    borderRadius: R.lg,
-    height: 52,
+    borderRadius: R.md,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: S.lg,
@@ -72,12 +72,12 @@ export const BTN = StyleSheet.create({
   },
   secondary: {
     backgroundColor: C.card2,
-    borderRadius: R.lg,
-    height: 52,
+    borderRadius: R.md,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: S.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: C.pink,
   },
   secondaryText: {
@@ -87,7 +87,7 @@ export const BTN = StyleSheet.create({
     letterSpacing: 0.3,
   },
   ghost: {
-    height: 52,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: S.lg,
@@ -102,8 +102,8 @@ export const BTN = StyleSheet.create({
 
 export const INPUT = StyleSheet.create({
   base: {
-    height: 52,
-    borderWidth: 1.5,
+    height: 48,
+    borderWidth: 1,
     borderColor: C.border,
     borderRadius: R.md,
     paddingHorizontal: S.md,
@@ -116,7 +116,7 @@ export const INPUT = StyleSheet.create({
     backgroundColor: C.white,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: C.muted,
     letterSpacing: 0.8,
@@ -128,21 +128,22 @@ export const INPUT = StyleSheet.create({
 export const CARD = StyleSheet.create({
   base: {
     backgroundColor: C.white,
-    borderRadius: R.xl,
+    borderRadius: R.lg,
     borderWidth: 1,
     borderColor: C.border,
     padding: S.md,
   },
   elevated: {
     backgroundColor: C.white,
-    borderRadius: R.xl,
+    borderRadius: R.lg,
     borderWidth: 1,
     borderColor: C.border,
     padding: S.md,
     shadowColor: C.pink,
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: 2,
   },
 });
+

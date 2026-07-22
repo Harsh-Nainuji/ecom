@@ -17,7 +17,7 @@ export async function getAdminDashboardStats() {
     { count: failedDeliveries, error: failedDeliveryError },
     { count: cancelledOrders, error: cancelledError },
     { data: recentOrders, error: recentOrdersError },
-    { data: sellerPipeline, error: sellerPipelineError },
+    { data: sellerPipelineRaw, error: sellerPipelineError },
     { data: lowStock, error: lowStockError },
     { data: approvals24h, error: approvalsError },
   ] = await Promise.all([
@@ -44,7 +44,7 @@ export async function getAdminDashboardStats() {
       .limit(8),
     supabase
       .from('seller_profiles')
-      .select('id, business_name, status, created_at, products:products(count)')
+      .select('id, business_name, status, created_at')
       .order('created_at', { ascending: false })
       .limit(5),
     supabase
@@ -75,9 +75,9 @@ export async function getAdminDashboardStats() {
     throw new Error(firstError.message);
   }
 
-  const gmv = (gmvData ?? []).reduce((sum, row) => sum + Number(row.total_amount ?? 0), 0);
+  const gmv = (gmvData ?? []).reduce((sum: number, row: any) => sum + Number(row.total_amount ?? 0), 0);
   const pendingPayoutTotal = (pendingPayoutData ?? []).reduce(
-    (sum, row) => sum + Number(row.total_amount ?? 0),
+    (sum: number, row: any) => sum + Number(row.total_amount ?? 0),
     0,
   );
 
@@ -86,6 +86,25 @@ export async function getAdminDashboardStats() {
     for (const row of approvals24h) {
       approvalsByRole[row.role] = (approvalsByRole[row.role] ?? 0) + 1;
     }
+  }
+
+  let sellerPipeline = sellerPipelineRaw || [];
+  if (sellerPipeline.length > 0) {
+    const sellerIds = sellerPipeline.map((s: any) => s.id);
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('seller_id')
+      .in('seller_id', sellerIds);
+    
+    const counts = (productsData || []).reduce((acc: any, p: any) => {
+      acc[p.seller_id] = (acc[p.seller_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    sellerPipeline = sellerPipeline.map((s: any) => ({
+      ...s,
+      skuCount: counts[s.id] || 0
+    }));
   }
 
   return {
@@ -104,11 +123,11 @@ export async function getAdminDashboardStats() {
       itemCount: Array.isArray(order.order_items) ? order.order_items.length : 0,
       placedAt: order.placed_at,
     })),
-    sellerPipeline: (sellerPipeline ?? []).map((seller: any) => ({
+    sellerPipeline: sellerPipeline.map((seller: any) => ({
       id: seller.id,
       name: seller.business_name,
       stage: seller.status,
-      skuCount: Array.isArray(seller.products) ? seller.products.length : 0,
+      skuCount: seller.skuCount || 0,
     })),
     lowStock: (lowStock ?? []).map((variant: any) => ({
       productName: variant.products?.name ?? 'Product',
