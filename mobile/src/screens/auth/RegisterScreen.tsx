@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
-import { ShoppingCart, Store } from 'lucide-react-native';
+import { ShoppingCart, Store, Truck } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,7 +13,7 @@ export function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'delivery'>('buyer');
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
@@ -67,6 +67,15 @@ export function RegisterScreen() {
             <Text style={[styles.roleLabel, role === 'seller' && styles.roleLabelActiveSeller]}>Seller</Text>
             <Text style={[styles.roleDesc, role === 'seller' && { color: '#a0522d' }]}>Sell products</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === 'delivery' && styles.roleBtnActiveDelivery]}
+            onPress={() => setRole('delivery')}
+            activeOpacity={0.8}
+          >
+            <Truck size={24} color={role === 'delivery' ? '#0369a1' : C.muted} strokeWidth={1.5} />
+            <Text style={[styles.roleLabel, role === 'delivery' && styles.roleLabelActiveDelivery]}>Delivery</Text>
+            <Text style={[styles.roleDesc, role === 'delivery' && { color: '#0369a1' }]}>Deliver orders</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.form}>
@@ -117,7 +126,7 @@ export function RegisterScreen() {
           disabled={submitting}
         >
           <Text style={BTN.primaryText}>
-            {submitting ? 'Creating account…' : `Create ${role === 'buyer' ? 'Buyer' : 'Seller'} Account`}
+            {submitting ? 'Creating account…' : `Create ${role === 'buyer' ? 'Buyer' : role === 'seller' ? 'Seller' : 'Delivery Partner'} Account`}
           </Text>
         </Pressable>
 
@@ -145,9 +154,11 @@ const styles = StyleSheet.create({
   },
   roleBtnActive: { borderColor: C.rose, backgroundColor: C.card2 },
   roleBtnActiveSeller: { borderColor: C.beige, backgroundColor: C.card1 },
+  roleBtnActiveDelivery: { borderColor: '#0369a1', backgroundColor: '#e0f2fe' },
   roleLabel: { fontSize: 14, fontWeight: '700', color: C.muted },
   roleLabelActive: { color: C.rose },
   roleLabelActiveSeller: { color: '#a0522d' },
+  roleLabelActiveDelivery: { color: '#0369a1' },
   roleDesc: { fontSize: 11, color: C.muted },
   form: { gap: S.md },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: S.sm },

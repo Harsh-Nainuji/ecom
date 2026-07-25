@@ -153,7 +153,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signUp = useCallback(
-    async ({ email, password, fullName, role }: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' }) => {
+    async ({ email, password, fullName, role }: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' | 'delivery' }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
