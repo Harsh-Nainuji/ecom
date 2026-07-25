@@ -21,7 +21,7 @@ interface AuthContextValue {
   loading: boolean;
   profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (params: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' }) => Promise<void>;
+  signUp: (params: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' | 'delivery' }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setActiveRole: (role: UserRole | null) => void;
