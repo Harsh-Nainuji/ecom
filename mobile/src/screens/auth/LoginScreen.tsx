@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
-import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
+import { C, S, R, BTN, T } from '../../lib/theme';
 
 export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackParamList, 'Login'>) {
   const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passFocused, setPassFocused] = useState(false);
@@ -22,30 +26,46 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
-    } catch (err) {
-      // Error already shown via Alert in AuthContext
     } finally {
       setSubmitting(false);
     }
   }
 
+  const inputBase = {
+    backgroundColor: C.surface,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: R.lg,
+    paddingHorizontal: S.md,
+    paddingVertical: S.md,
+    fontSize: 15,
+    color: C.text,
+  };
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {/* Wordmark */}
-        <View style={styles.brandRow}>
-          <View style={styles.brandDot} />
-          <Text style={styles.brand}>FabZone</Text>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: C.card0 }}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: Math.max(S.xxl, insets.top + 24), paddingBottom: insets.bottom + S.xl },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brand}>FabZone</Text>
+          </View>
+          <Text style={styles.heading}>Welcome back</Text>
+          <Text style={styles.sub}>Sign in to shop, sell, or deliver</Text>
         </View>
 
-        <Text style={styles.heading}>Welcome back</Text>
-        <Text style={styles.sub}>Sign in to your account</Text>
-
-        <View style={styles.form}>
-          <View>
-            <Text style={INPUT.label}>Email</Text>
+        <View style={styles.card}>
+          <View style={styles.field}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              style={[INPUT.base, emailFocused && INPUT.focused]}
+              style={[inputBase, emailFocused && { borderColor: C.rose, backgroundColor: C.white }]}
               placeholder="you@example.com"
               placeholderTextColor={C.muted}
               keyboardType="email-address"
@@ -56,45 +76,50 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
               onBlur={() => setEmailFocused(false)}
             />
           </View>
-          <View>
-            <Text style={INPUT.label}>Password</Text>
-            <TextInput
-              style={[INPUT.base, passFocused && INPUT.focused]}
-              placeholder="••••••••"
-              placeholderTextColor={C.muted}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setPassFocused(true)}
-              onBlur={() => setPassFocused(false)}
-            />
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Password</Text>
+            <View style={[styles.passwordBox, passFocused && { borderColor: C.rose, backgroundColor: C.white }]}>
+              <TextInput
+                style={{
+                  flex: 1,
+                  fontSize: 15,
+                  color: C.text,
+                  paddingVertical: 0,
+                }}
+                placeholder="••••••••"
+                placeholderTextColor={C.muted}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setPassFocused(true)}
+                onBlur={() => setPassFocused(false)}
+              />
+              <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={12} style={styles.eyeBtn}>
+                {showPassword ? (
+                  <EyeOff size={20} color={C.muted} strokeWidth={2} />
+                ) : (
+                  <Eye size={20} color={C.muted} strokeWidth={2} />
+                )}
+              </Pressable>
+            </View>
           </View>
 
-          <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={{ alignSelf: 'flex-end' }}>
-            <Text style={T.link}>Forgot password?</Text>
+          <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot}>
+            <Text style={[T.link, { fontSize: 13 }]}>Forgot password?</Text>
+          </Pressable>
+
+          <Pressable style={[BTN.primary, submitting && BTN.disabled, { marginTop: S.sm }]} onPress={handleSubmit} disabled={submitting}>
+            <Text style={BTN.primaryText}>{submitting ? 'Signing in…' : 'Sign In'}</Text>
           </Pressable>
         </View>
 
-        <Pressable
-          style={[BTN.primary, submitting && BTN.disabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
-        >
-          <Text style={BTN.primaryText}>{submitting ? 'Signing in…' : 'Sign In'}</Text>
-        </Pressable>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
+        <View style={styles.footer}>
+          <Text style={[T.bodySmall, { color: C.muted }]}>New here?</Text>
+          <Pressable onPress={() => navigation.navigate('Register')}>
+            <Text style={[T.link, { fontWeight: '700' }]}>Create an account</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          style={BTN.secondary}
-          onPress={() => navigation.navigate('Register')}
-        >
-          <Text style={BTN.secondaryText}>Create an Account</Text>
-        </Pressable>
 
         <Text style={styles.legal}>
           By continuing you agree to our{' '}
@@ -107,16 +132,38 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.white },
-  scroll: { paddingHorizontal: S.lg, paddingTop: S.xxl + 16, paddingBottom: S.xl, gap: S.md },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.lg },
-  brandDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.rose },
-  brand: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: 1.5 },
-  heading: { ...T.h1, marginBottom: S.xs },
-  sub: { ...T.bodySmall, color: C.muted, marginBottom: S.sm },
-  form: { gap: S.md },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: S.sm, marginVertical: S.xs },
-  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  dividerText: { ...T.caption, paddingHorizontal: S.xs },
-  legal: { ...T.caption, textAlign: 'center', color: C.muted, marginTop: S.sm },
+  scroll: { flexGrow: 1, paddingHorizontal: S.lg, gap: S.md, justifyContent: 'center' },
+  header: { alignItems: 'center', marginBottom: S.md },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.md },
+  brandDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.rose },
+  brand: { fontSize: 22, fontWeight: '900', color: C.text, letterSpacing: 1.5 },
+  heading: { ...T.h1, marginBottom: S.xs, textAlign: 'center' },
+  sub: { ...T.body, color: C.muted, textAlign: 'center' },
+  card: {
+    backgroundColor: C.white,
+    borderRadius: R.xl,
+    padding: S.lg,
+    gap: S.md,
+    shadowColor: C.pink,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  field: { gap: S.xs },
+  label: { ...T.label, color: C.text2, fontSize: 13 },
+  passwordBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: R.lg,
+    paddingHorizontal: S.md,
+    paddingVertical: S.md,
+  },
+  eyeBtn: { padding: 4, marginLeft: S.xs },
+  forgot: { alignSelf: 'flex-end', marginTop: -S.xs },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.xs, marginTop: S.sm },
+  legal: { ...T.caption, textAlign: 'center', color: C.muted, marginTop: S.md },
 });

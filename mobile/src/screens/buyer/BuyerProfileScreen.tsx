@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,6 +9,7 @@ import { C, S, R, BTN, T } from '../../lib/theme';
 
 export function BuyerProfileScreen() {
   const { profile, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
   if (!profile) {
@@ -45,7 +47,7 @@ export function BuyerProfileScreen() {
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom + S.lg }]}>
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{profile.full_name?.[0]?.toUpperCase() ?? ''}</Text>

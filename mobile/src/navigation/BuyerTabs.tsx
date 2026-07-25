@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { TouchableOpacity, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, ClipboardList, User, ShoppingCart } from 'lucide-react-native';
 import { BuyerHomeScreen } from '../screens/buyer/BuyerHomeScreen';
 import { BuyerOrdersScreen } from '../screens/buyer/BuyerOrdersScreen';
@@ -42,6 +43,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 
 export function BuyerTabs() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -51,8 +53,8 @@ export function BuyerTabs() {
           backgroundColor: '#ffffff',
           borderTopColor: '#F0E4E7',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
           shadowColor: '#F5A5B0',
           shadowOpacity: 0.06,

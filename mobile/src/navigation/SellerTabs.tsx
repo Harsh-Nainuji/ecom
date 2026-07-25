@@ -1,9 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View } from 'react-native';
-import { LayoutDashboard, Package, ClipboardList } from 'lucide-react-native';
+import { Alert, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LayoutDashboard, Package, ClipboardList, LogOut } from 'lucide-react-native';
 import { SellerDashboardScreen } from '../screens/seller/SellerDashboardScreen';
 import { SellerProductsScreen } from '../screens/seller/SellerProductsScreen';
 import { SellerOrdersScreen } from '../screens/seller/SellerOrdersScreen';
+import { useAuth } from '../context/AuthContext';
+import { C } from '../lib/theme';
 
 export type SellerTabParamList = {
   SellerDashboard: undefined;
@@ -37,18 +40,36 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
+function HeaderLogout() {
+  const { signOut } = useAuth();
+  return (
+    <TouchableOpacity
+      style={{ marginRight: 16, padding: 6, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: C.error }}
+      onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: signOut },
+      ])}
+      activeOpacity={0.8}
+    >
+      <LogOut size={18} color={C.error} strokeWidth={2} />
+    </TouchableOpacity>
+  );
+}
+
 export function SellerTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
+        headerRight: () => <HeaderLogout />,
         tabBarActiveTintColor: '#c2185b',
         tabBarInactiveTintColor: '#9e9e9e',
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopColor: '#F0E4E7',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
           shadowColor: '#F5A5B0',
           shadowOpacity: 0.06,
