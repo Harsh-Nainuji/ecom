@@ -19,20 +19,33 @@ export function pickPrimaryImage(product?: { product_images?: { image_url: strin
 export async function uploadProductImage(productId: string, base64Image: string, fileName: string, mimeType: string) {
   const path = `${productId}/${Date.now()}_${fileName}`;
   const arrayBuffer = decodeBase64(base64Image);
-  const { error: uploadError } = await supabase.storage
-    .from(PRODUCT_IMAGES_BUCKET)
-    .upload(path, arrayBuffer, { contentType: mimeType, upsert: false });
+  
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from(PRODUCT_IMAGES_BUCKET)
+      .upload(path, arrayBuffer, { contentType: mimeType, upsert: false });
 
-  if (uploadError) throw new Error(uploadError.message);
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw new Error(`Image upload failed: ${uploadError.message}`);
+    }
 
-  const { data, error: insertError } = await supabase
-    .from('product_images')
-    .insert({ product_id: productId, image_url: path })
-    .select()
-    .single();
+    const { data, error: insertError } = await supabase
+      .from('product_images')
+      .insert({ product_id: productId, image_url: path })
+      .select()
+      .single();
 
-  if (insertError) throw new Error(insertError.message);
-  return data;
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      throw new Error(`Failed to save image record: ${insertError.message}`);
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('uploadProductImage error:', err);
+    throw err;
+  }
 }
 
 function decodeBase64(base64: string) {

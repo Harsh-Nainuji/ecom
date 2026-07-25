@@ -53,7 +53,13 @@ export function ProductDetailScreen() {
           fetchReviews(route.params.productId),
         ]);
         setProduct(data);
-        setSelectedVariant(data.product_variants?.[0] ?? null);
+        const firstVariant = data.product_variants?.[0];
+        if (firstVariant) {
+          setSelectedVariant(firstVariant);
+        } else {
+          console.warn('Product has no variants');
+          setSelectedVariant(null);
+        }
         setReviews(reviewData);
         setError(null);
       } catch (err) {
