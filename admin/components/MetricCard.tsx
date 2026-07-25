@@ -6,7 +6,7 @@ interface MetricCardProps {
   value: string;
   sublabel?: string;
   icon?: ReactNode;
-  accent?: 'emerald' | 'amber' | 'sky' | 'rose' | 'slate';
+  accent?: 'emerald' | 'amber' | 'sky' | 'rose' | 'slate' | 'violet';
 }
 
 const accentMap: Record<NonNullable<MetricCardProps['accent']>, string> = {
@@ -15,6 +15,7 @@ const accentMap: Record<NonNullable<MetricCardProps['accent']>, string> = {
   sky: 'text-sky-600 bg-sky-50 border-sky-100',
   rose: 'text-[#c2185b] bg-[#FFF0F2] border-[#F7E4E6]',
   slate: 'text-slate-600 bg-slate-50 border-slate-100',
+  violet: 'text-violet-600 bg-violet-50 border-violet-100',
 };
 
 export function MetricCard({ label, value, sublabel, icon, accent = 'slate' }: MetricCardProps) {

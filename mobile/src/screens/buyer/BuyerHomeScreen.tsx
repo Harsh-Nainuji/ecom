@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,13 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Search, X, Truck, Gift, ShoppingBag, Star, Sparkles, ArrowRight } from 'lucide-react-native';
-import { fetchCategories, fetchFeaturedProducts, searchProducts } from '../../lib/api/buyer';
+import { fetchCategories, fetchFeaturedProducts, fetchHomeBanners, searchProducts } from '../../lib/api/buyer';
 import { pickPrimaryImage } from '../../lib/storage';
-import type { Category, Product } from '../../lib/types';
+import type { Category, HomeBanner, Product } from '../../lib/types';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, T } from '../../lib/theme';
 
@@ -28,10 +31,15 @@ const CARD_PALETTES = [
   { bg: C.card3, text: '#c96a00' },
 ];
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
 export function BuyerHomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [banners, setBanners] = useState<HomeBanner[]>([]);
+  const [bannerIndex, setBannerIndex] = useState(0);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,14 +54,23 @@ export function BuyerHomeScreen() {
   async function loadInitial() {
     setLoading(true);
     try {
-      const [cats, featured] = await Promise.all([fetchCategories(), fetchFeaturedProducts()]);
+      const [cats, featured, bannerData] = await Promise.all([
+        fetchCategories(),
+        fetchFeaturedProducts(),
+        fetchHomeBanners().catch((err) => {
+          console.warn('Failed to load banners', err);
+          return [];
+        }),
+      ]);
       setCategories((cats ?? []) as Category[]);
       setProducts((featured ?? []) as Product[]);
+      setBanners(bannerData ?? []);
       setError(null);
     } catch (err) {
       console.warn('Failed to load home feed', err);
       setCategories([]);
       setProducts([]);
+      setBanners([]);
       setError('Unable to load products right now. Pull to refresh.');
     } finally {
       setLoading(false);
@@ -100,30 +117,71 @@ export function BuyerHomeScreen() {
       data={products}
       keyExtractor={(item) => item.id}
       numColumns={2}
-      contentContainerStyle={styles.productGrid}
+      contentContainerStyle={[styles.productGrid, { paddingBottom: insets.bottom + 40 }]}
       columnWrapperStyle={{ gap: 12 }}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={loadInitial} tintColor={C.pink} />}
       ListHeaderComponent={
         <View>
-          {/* Hero Banner */}
-          <LinearGradient colors={[C.rose, '#f46f90']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBanner}>
-            <View style={styles.heroBannerInner}>
-              <View style={styles.heroTagRow}>
-                <View style={styles.heroTagDot} />
-                <Text style={styles.heroTag}>NEW ARRIVALS</Text>
+          {/* Hero Banner / Marketing Carousel */}
+          {banners.length > 0 ? (
+            <View style={styles.carouselContainer}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+                  setBannerIndex(idx);
+                }}
+              >
+                {banners.map((banner) => (
+                  <TouchableOpacity
+                    key={banner.id}
+                    activeOpacity={banner.link_url ? 0.8 : 1}
+                    onPress={() => banner.link_url && Linking.openURL(banner.link_url)}
+                    style={styles.carouselSlide}
+                  >
+                    <Image source={{ uri: banner.image_url }} style={styles.carouselImage} resizeMode="cover" />
+                    {banner.title ? (
+                      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.5)']} style={styles.carouselOverlay}>
+                        <Text style={styles.carouselTitle}>{banner.title}</Text>
+                      </LinearGradient>
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <View style={styles.carouselDots}>
+                {banners.map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.carouselDot,
+                      idx === bannerIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
               </View>
-              <Text style={styles.heroTitle}>Style That{'\n'}Speaks You</Text>
-              <Text style={styles.heroSubtitle}>Trendy fashion at your fingertips</Text>
-              <TouchableOpacity style={styles.heroBtn} onPress={() => {}} activeOpacity={0.9}>
-                <Text style={styles.heroBtnText}>Shop Now</Text>
-                <ArrowRight size={12} color={C.rose} strokeWidth={2.5} />
-              </TouchableOpacity>
             </View>
-            <View style={styles.heroAccent}>
-              <Sparkles size={38} color={C.white} strokeWidth={1.5} />
-              <View style={styles.heroAccentDot} />
-            </View>
-          </LinearGradient>
+          ) : (
+            <LinearGradient colors={[C.rose, '#f46f90']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBanner}>
+              <View style={styles.heroBannerInner}>
+                <View style={styles.heroTagRow}>
+                  <View style={styles.heroTagDot} />
+                  <Text style={styles.heroTag}>NEW ARRIVALS</Text>
+                </View>
+                <Text style={styles.heroTitle}>Style That{'\n'}Speaks You</Text>
+                <Text style={styles.heroSubtitle}>Trendy fashion at your fingertips</Text>
+                <TouchableOpacity style={styles.heroBtn} onPress={() => {}} activeOpacity={0.9}>
+                  <Text style={styles.heroBtnText}>Shop Now</Text>
+                  <ArrowRight size={12} color={C.rose} strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.heroAccent}>
+                <Sparkles size={38} color={C.white} strokeWidth={1.5} />
+                <View style={styles.heroAccentDot} />
+              </View>
+            </LinearGradient>
+          )}
 
           {/* Search Bar */}
           <View style={styles.searchWrapper}>
@@ -323,7 +381,19 @@ const styles = StyleSheet.create({
   promoItem: { flexDirection: 'row', alignItems: 'center', gap: S.xs, flex: 1 },
   promoText: { fontSize: 11, color: C.rose, fontWeight: '600' },
   promoDivider: { width: 1, height: 14, backgroundColor: C.border },
-  productGrid: { paddingHorizontal: S.md, paddingBottom: 40, gap: 12 },
+  carouselContainer: { marginHorizontal: S.md, marginTop: S.md, marginBottom: S.sm, borderRadius: R.lg, overflow: 'hidden' },
+  carouselSlide: { width: SCREEN_WIDTH - S.md * 2, height: 180, borderRadius: R.lg, overflow: 'hidden' },
+  carouselImage: { width: '100%', height: '100%' },
+  carouselOverlay: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    padding: S.md, paddingTop: S.xl,
+    justifyContent: 'flex-end',
+  },
+  carouselTitle: { color: C.white, fontWeight: '800', fontSize: 16, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  carouselDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: S.sm },
+  carouselDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.border },
+  carouselDotActive: { backgroundColor: C.rose, width: 14, borderRadius: 3 },
+  productGrid: { paddingHorizontal: S.md, gap: 12 },
   card: {
     flex: 1, backgroundColor: C.white, borderRadius: R.md,
     overflow: 'hidden', borderWidth: 1, borderColor: C.border,

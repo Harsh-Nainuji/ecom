@@ -3,12 +3,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { User, Heart, MapPin, LogOut, ChevronRight } from 'lucide-react-native';
+import { User, Heart, MapPin, LogOut, ChevronRight, Store } from 'lucide-react-native';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, BTN, T } from '../../lib/theme';
 
 export function BuyerProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, setActiveRole } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
@@ -34,6 +34,15 @@ export function BuyerProfileScreen() {
   }
 
   const menuItems = [
+    ...(profile.role === 'seller'
+      ? [
+          {
+            label: 'Switch to Seller Dashboard',
+            icon: Store,
+            onPress: () => setActiveRole('seller'),
+          },
+        ]
+      : []),
     {
       label: 'Wishlist',
       icon: Heart,

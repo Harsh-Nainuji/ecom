@@ -3,6 +3,7 @@ import type {
   Address,
   CartItemWithProduct,
   Category,
+  HomeBanner,
   OrderDetail,
   OrderSummary,
   Product,
@@ -28,6 +29,17 @@ export async function fetchCategories() {
   const { data, error } = await supabase.from('categories').select('*').order('name');
   if (error) throw new Error(error.message);
   return data as Category[];
+}
+
+export async function fetchHomeBanners() {
+  const { data, error } = await supabase
+    .from('home_banners')
+    .select('*')
+    .eq('active', true)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as HomeBanner[];
 }
 
 export async function searchProducts(query: string, categoryId?: string | null) {

@@ -64,6 +64,7 @@ create table if not exists public.seller_profiles (
   email text not null,
   gst_number text,
   aadhar_number text,
+  aadhar_card_url text,
   pan_number text,
   business_address text,
   bank_account_number text,
@@ -572,6 +573,60 @@ create policy "All users read sponsored listings"
   on public.sponsored_listings
   for select
   using (true);
+
+-- home_banners ----------------------------------------------------------------
+create table if not exists public.home_banners (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  image_url text not null,
+  link_url text,
+  active boolean not null default true,
+  display_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.home_banners enable row level security;
+
+create policy if not exists "Anyone can view active banners"
+  on public.home_banners
+  for select
+  using (active = true);
+
+create policy if not exists "Admins manage banners"
+  on public.home_banners
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- storage buckets --------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('home-banners', 'home-banners', true)
+on conflict (id) do nothing;
+
+create policy if not exists "Public read home banners"
+  on storage.objects for select
+  using (bucket_id = 'home-banners');
+
+create policy if not exists "Admins upload home banners"
+  on storage.objects for insert
+  with check (bucket_id = 'home-banners' and public.is_admin());
+
+create policy if not exists "Admins delete home banners"
+  on storage.objects for delete
+  using (bucket_id = 'home-banners' and public.is_admin());
+
+-- admin helpers ----------------------------------------------------------------
+create or replace function public.get_database_size_bytes()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select pg_database_size(current_database());
+$$;
+
+grant execute on function public.get_database_size_bytes to authenticated;
 
 -- NOTE -----------------------------------------------------------------------
 -- Admin & automation tasks should use the Supabase service_role key, which

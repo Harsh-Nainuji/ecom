@@ -18,7 +18,7 @@ function LoadingScreen() {
 }
 
 export function RootNavigator() {
-  const { loading, session, profile, sellerProfile } = useAuth();
+  const { loading, session, profile, sellerProfile, activeRole } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
@@ -31,7 +31,11 @@ export function RootNavigator() {
     if (!profile) {
       return <LoadingScreen />;
     }
-    switch (profile.role) {
+
+    // Let sellers (and admins, if any) temporarily switch to buyer mode
+    const effectiveRole = activeRole ?? profile.role;
+
+    switch (effectiveRole) {
       case 'seller':
         if (!sellerProfile) {
           return <SellerRegistrationScreen />;
@@ -45,6 +49,7 @@ export function RootNavigator() {
         return <SellerTabs />;
       case 'delivery':
         return <DeliveryStack />;
+      case 'admin':
       case 'buyer':
       default:
         return <BuyerStack />;

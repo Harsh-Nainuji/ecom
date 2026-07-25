@@ -235,3 +235,112 @@ export async function listDeliveries() {
     placedAt: row.placed_at,
   }));
 }
+
+export async function listBanners() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('home_banners')
+    .select('*')
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) {
+    // Gracefully handle the table not existing until the migration is applied.
+    const message = String(error.message).toLowerCase();
+    if (message.includes('relation') || message.includes('does not exist') || message.includes('could not find') || message.includes('schema cache')) {
+      console.warn('home_banners table not found; return empty list until migration is applied.');
+      return [];
+    }
+    throw new Error(error.message);
+  }
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    title: row.title ?? '',
+    imageUrl: row.image_url,
+    linkUrl: row.link_url ?? '',
+    active: row.active ?? true,
+    displayOrder: row.display_order ?? 0,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createBanner(formData: FormData) {
+  const supabase = getSupabaseAdmin();
+  const title = String(formData.get('title') ?? '');
+  const linkUrl = String(formData.get('linkUrl') ?? '');
+  const displayOrder = Number(formData.get('displayOrder') ?? 0);
+  const active = formData.get('active') === 'true';
+  const image = formData.get('image') as File | null;
+
+  if (!image || image.size === 0) {
+    throw new Error('Please select an image.');
+  }
+  if (image.size > 5 * 1024 * 1024) {
+    throw new Error('Image must be smaller than 5 MB.');
+  }
+  if (!image.type.startsWith('image/')) {
+    throw new Error('Only image files are allowed.');
+  }
+
+  const extension = image.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${Date.now()}_banner.${extension}`;
+  const { error: uploadError } = await supabase.storage
+    .from('home-banners')
+    .upload(path, image, { contentType: image.type, upsert: false });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: publicUrlData } = supabase.storage.from('home-banners').getPublicUrl(path);
+
+  const { error: insertError } = await supabase.from('home_banners').insert({
+    title,
+    image_url: publicUrlData.publicUrl,
+    link_url: linkUrl || null,
+    display_order: displayOrder,
+    active,
+  });
+  if (insertError) throw new Error(insertError.message);
+
+  revalidatePath('/banners');
+}
+
+export async function deleteBanner(id: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from('home_banners').select('image_url').eq('id', id).single();
+  if (error) throw new Error(error.message);
+
+  try {
+    if (data?.image_url) {
+      const url = new URL(data.image_url);
+      const pathParts = url.pathname.split('/home-banners/');
+      if (pathParts.length > 1) {
+        await supabase.storage.from('home-banners').remove([pathParts[1]]);
+      }
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+
+  const { error: deleteError } = await supabase.from('home_banners').delete().eq('id', id);
+  if (deleteError) throw new Error(deleteError.message);
+  revalidatePath('/banners');
+}
+
+export async function toggleBannerActive(id: string, active: boolean) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('home_banners').update({ active }).eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/banners');
+}
+
+export async function getDatabaseUsage() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('get_database_size_bytes');
+  if (error) throw new Error(error.message);
+  const usedBytes = Number(data ?? 0);
+  const totalBytes = 500 * 1024 * 1024; // 500 MB Supabase free-tier reference
+  return {
+    usedBytes,
+    totalBytes,
+    usedPercent: totalBytes > 0 ? Math.min(100, Math.round((usedBytes / totalBytes) * 1000) / 10) : 0,
+    remainingBytes: Math.max(0, totalBytes - usedBytes),
+  };
+}

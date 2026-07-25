@@ -39,6 +39,16 @@ export interface WishlistEntry {
   product_id: string;
 }
 
+export interface HomeBanner {
+  id: string;
+  title?: string | null;
+  image_url: string;
+  link_url?: string | null;
+  active: boolean;
+  display_order: number;
+  created_at: string;
+}
+
 export interface CartItemWithProduct {
   id: string;
   quantity: number;

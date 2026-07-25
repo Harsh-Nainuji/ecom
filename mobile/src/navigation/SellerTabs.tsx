@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Alert, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutDashboard, Package, ClipboardList, LogOut } from 'lucide-react-native';
+import { LayoutDashboard, Package, ClipboardList, LogOut, ShoppingBag } from 'lucide-react-native';
 import { SellerDashboardScreen } from '../screens/seller/SellerDashboardScreen';
 import { SellerProductsScreen } from '../screens/seller/SellerProductsScreen';
 import { SellerOrdersScreen } from '../screens/seller/SellerOrdersScreen';
@@ -40,19 +40,31 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
-function HeaderLogout() {
-  const { signOut } = useAuth();
+function HeaderActions() {
+  const { signOut, setActiveRole } = useAuth();
   return (
-    <TouchableOpacity
-      style={{ marginRight: 16, padding: 6, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: C.error }}
-      onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
-      ])}
-      activeOpacity={0.8}
-    >
-      <LogOut size={18} color={C.error} strokeWidth={2} />
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 16 }}>
+      <TouchableOpacity
+        style={{ padding: 6, borderRadius: 8, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#86efac' }}
+        onPress={() => Alert.alert('Switch to Buyer', 'Open the buyer app view to shop?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Shop Now', onPress: () => setActiveRole('buyer') },
+        ])}
+        activeOpacity={0.8}
+      >
+        <ShoppingBag size={18} color={C.success} strokeWidth={2} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={{ padding: 6, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: C.error }}
+        onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign Out', style: 'destructive', onPress: signOut },
+        ])}
+        activeOpacity={0.8}
+      >
+        <LogOut size={18} color={C.error} strokeWidth={2} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -61,7 +73,7 @@ export function SellerTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerRight: () => <HeaderLogout />,
+        headerRight: () => <HeaderActions />,
         tabBarActiveTintColor: '#c2185b',
         tabBarInactiveTintColor: '#9e9e9e',
         tabBarStyle: {

@@ -10,18 +10,20 @@ import {
 import { Alert } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { Profile } from '../types/profile';
+import type { Profile, UserRole } from '../types/profile';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 
 interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   sellerProfile: any | null;
+  activeRole: UserRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (params: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setActiveRole: (role: UserRole | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -69,6 +71,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sellerProfile, setSellerProfile] = useState<any | null>(null);
+  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,6 +82,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (!newSession) {
+        setActiveRole(null);
+      }
     });
 
     return () => {
@@ -187,13 +193,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       profile,
       sellerProfile,
+      activeRole,
       loading,
       signIn,
       signUp,
       signOut,
       refreshProfile,
+      setActiveRole,
     }),
-    [session, profile, sellerProfile, loading, signIn, signUp, signOut, refreshProfile],
+    [session, profile, sellerProfile, activeRole, loading, signIn, signUp, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

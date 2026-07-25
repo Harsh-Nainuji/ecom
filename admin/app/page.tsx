@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   CreditCard,
+  Database,
   PackageSearch,
   ShieldAlert,
   ShoppingBag,
@@ -18,11 +19,22 @@ import {
   orderStatusLabel,
   orderStatusPillClass,
 } from '../lib/api/adminStats';
+import { getDatabaseUsage } from '../lib/actions';
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return '0 MB';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
 
 export default async function Home() {
   let stats;
+  let usage;
   try {
     stats = await getAdminDashboardStats();
+    usage = await getDatabaseUsage().catch(() => null);
   } catch (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 px-10 py-20">
@@ -93,6 +105,15 @@ export default async function Home() {
       icon: <AlertOctagon className="h-4 w-4" />,
       accent: 'rose' as const,
     },
+    {
+      label: 'Database used',
+      value: usage ? `${usage.usedPercent}%` : '—',
+      sublabel: usage
+        ? `${formatBytes(usage.usedBytes)} of ${formatBytes(usage.totalBytes)} used · ${formatBytes(usage.remainingBytes)} left`
+        : 'Unable to load usage',
+      icon: <Database className="h-4 w-4" />,
+      accent: 'violet' as const,
+    },
   ];
 
   return (
@@ -117,6 +138,31 @@ export default async function Home() {
             <MetricCard key={metric.label} {...metric} />
           ))}
         </div>
+
+        {usage && (
+          <div className="rounded-2xl border border-[#F7E4E6] bg-white p-5 premium-shadow">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <Database className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#1A1A2D]">Database Storage</p>
+                  <p className="text-[10px] text-slate-400">{formatBytes(usage.usedBytes)} used · {formatBytes(usage.remainingBytes)} left</p>
+                </div>
+              </div>
+              <span className={`rounded-lg px-2.5 py-1 text-[10px] font-extrabold ${usage.usedPercent >= 80 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                {usage.usedPercent}%
+              </span>
+            </div>
+            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all ${usage.usedPercent >= 80 ? 'bg-rose-500' : 'bg-violet-500'}`}
+                style={{ width: `${Math.min(100, usage.usedPercent)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Main Board Grid */}
