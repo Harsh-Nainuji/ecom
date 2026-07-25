@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Package, ClipboardList, CreditCard, AlertTriangle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -19,11 +19,12 @@ const QUICK_ACTIONS: { label: string; icon: any; tab?: keyof SellerTabParamList 
 ];
 
 export function SellerDashboardScreen() {
-  const { session, profile } = useAuth();
+  const { session, profile, sellerProfile } = useAuth();
   const navigation = useNavigation<SellerTabNav>();
   const [stats, setStats] = useState<SellerDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPayoutDetails, setShowPayoutDetails] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user || profile?.role !== 'seller') return;
@@ -63,6 +64,8 @@ export function SellerDashboardScreen() {
   const handleQuickAction = (action: typeof QUICK_ACTIONS[number]) => {
     if (action.tab) {
       navigation.navigate(action.tab);
+    } else if (action.label === 'Payouts') {
+      setShowPayoutDetails(true);
     } else {
       Alert.alert(action.label, 'This feature is coming soon.');
     }
@@ -162,7 +165,52 @@ export function SellerDashboardScreen() {
     );
   }
 
-  return renderDashboard();
+  return (
+    <>
+      {renderDashboard()}
+      <Modal visible={showPayoutDetails} animationType="slide" transparent={true} onRequestClose={() => setShowPayoutDetails(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={T.h3}>Payout Details</Text>
+              <TouchableOpacity onPress={() => setShowPayoutDetails(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {sellerProfile ? (
+                <View style={styles.payoutCard}>
+                  <Text style={[T.label, { marginBottom: S.sm }]}>Bank Account Information</Text>
+                  <View style={styles.payoutRow}>
+                    <Text style={styles.payoutLabel}>Account Holder</Text>
+                    <Text style={styles.payoutValue}>{sellerProfile.bank_account_name || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.payoutRow}>
+                    <Text style={styles.payoutLabel}>Account Number</Text>
+                    <Text style={styles.payoutValue}>{sellerProfile.bank_account_number ? `****${sellerProfile.bank_account_number.slice(-4)}` : 'N/A'}</Text>
+                  </View>
+                  <View style={styles.payoutRow}>
+                    <Text style={styles.payoutLabel}>IFSC Code</Text>
+                    <Text style={styles.payoutValue}>{sellerProfile.bank_ifsc || 'N/A'}</Text>
+                  </View>
+                  <View style={[styles.payoutRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.payoutLabel}>Status</Text>
+                    <Text style={[styles.payoutValue, { color: sellerProfile.status === 'approved' ? C.success : C.warning }]}>
+                      {(sellerProfile.status || 'pending').toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.payoutCard}>
+                  <Text style={[T.bodySmall, { color: C.muted }]}>No payout details found. Please complete your seller registration.</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -188,4 +236,12 @@ const styles = StyleSheet.create({
   alertCard: { flexDirection: 'row', alignItems: 'center', gap: S.md, backgroundColor: '#fffbeb', borderRadius: R.lg, padding: S.md, borderWidth: 1, borderColor: '#fde68a' },
   emptyOrders: { padding: S.md, alignItems: 'center' },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.white },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: C.white, borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl, padding: S.lg, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: S.md },
+  closeBtn: { fontSize: 24, color: C.text2, fontWeight: '700' },
+  payoutCard: { backgroundColor: C.surface, borderRadius: R.lg, padding: S.md, borderWidth: 1, borderColor: C.border },
+  payoutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: S.sm, borderBottomWidth: 1, borderColor: C.border },
+  payoutLabel: { ...T.caption, fontWeight: '600', color: C.text2 },
+  payoutValue: { ...T.caption, fontWeight: '700', color: C.text },
 });

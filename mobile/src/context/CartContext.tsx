@@ -49,7 +49,7 @@ export function CartProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, session?.user?.id]);
 
   return (
     <CartContext.Provider value={{ items, loading, refresh, setQuantity, remove }}>
