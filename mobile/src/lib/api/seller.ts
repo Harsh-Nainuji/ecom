@@ -29,9 +29,11 @@ export interface SellerOrder {
 const STATUS_FLOW: OrderStatus[] = ['pending', 'paid', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'];
 
 export function getNextOrderStatus(current: OrderStatus): OrderStatus | null {
-  const idx = STATUS_FLOW.indexOf(current);
-  if (idx === -1 || idx >= STATUS_FLOW.length - 1) return null;
-  return STATUS_FLOW[idx + 1] ?? null;
+  const advanceable: OrderStatus[] = ['pending', 'paid', 'packed', 'shipped', 'out_for_delivery'];
+  const idx = advanceable.indexOf(current);
+  if (idx === -1) return null;
+  const flowFull: OrderStatus[] = ['pending', 'paid', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
+  return flowFull[idx + 1] ?? null;
 }
 
 export async function fetchSellerDashboardStats(sellerId: string): Promise<SellerDashboardStats> {
@@ -105,16 +107,28 @@ export async function upsertSellerProduct(
   }
 
   const base = { ...payload, seller_id: sellerId };
-  const { data, error } = await supabase
-    .from('products')
-    .upsert(base, { onConflict: 'id' })
-    .select('id')
-    .single();
+  let productId: string;
 
-  if (error) throw new Error(error.message);
-  const productId = data?.id as string;
-
-  if (!payload.id) {
+  if (payload.id) {
+    // Update existing product
+    const { id, ...updateFields } = base;
+    const { error } = await supabase
+      .from('products')
+      .update(updateFields)
+      .eq('id', payload.id)
+      .eq('seller_id', sellerId);
+    if (error) throw new Error(error.message);
+    productId = payload.id;
+  } else {
+    // Insert new product
+    const { data, error } = await supabase
+      .from('products')
+      .insert(base)
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
+    productId = data.id as string;
+    // Create default variant for new product
     await supabase.from('product_variants').insert({ product_id: productId, stock: 0, size: null, color: null });
   }
 
@@ -149,7 +163,7 @@ export async function fetchSellerOrders(sellerId: string, statusFilter?: OrderSt
     .eq('seller_id', sellerId)
     .order('placed_at', { ascending: false });
 
-  if (statusFilter && statusFilter !== 'pending') {
+  if (statusFilter) {
     query = query.eq('order_status', statusFilter);
   }
 

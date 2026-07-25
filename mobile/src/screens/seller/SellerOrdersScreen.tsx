@@ -6,9 +6,10 @@ import { fetchSellerOrders, getNextOrderStatus, type SellerOrder, updateOrderSta
 import type { OrderStatus } from '../../lib/types';
 import { C, S, R, T } from '../../lib/theme';
 
-const FILTERS: (OrderStatus | 'All')[] = ['All', 'paid', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
+const FILTERS: (OrderStatus | 'All')[] = ['All', 'pending', 'paid', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  pending:    { bg: '#f3f4f6', color: C.muted },
   paid:      { bg: C.card2, color: C.rose },
   packed:    { bg: '#fef3c7', color: '#92400e' },
   shipped:   { bg: '#dbeafe', color: '#1e40af' },

@@ -21,6 +21,8 @@ import {
 } from '../lib/api/adminStats';
 import { getDatabaseUsage } from '../lib/actions';
 
+export const revalidate = 30;
+
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 MB';
   const k = 1024;
@@ -125,13 +127,13 @@ export default async function Home() {
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#c2185b]">Realtime Operations</p>
             <h2 className="text-2xl font-extrabold text-[#1A1A2D] tracking-tight editorial-header">Marketplace Pulse</h2>
           </div>
-          <button
-            type="button"
+          <a
+            href="/"
             className="glow-btn inline-flex items-center gap-2 rounded-xl bg-[#c2185b] px-4.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#a01046]"
           >
             Refresh Data
             <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
+          </a>
         </div>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (

@@ -1,6 +1,8 @@
 import { Truck, MapPin } from 'lucide-react';
 import { listDeliveries } from '../../lib/actions';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Deliveries · FabZone Admin',
 };
@@ -48,7 +50,7 @@ export default async function DeliveriesPage() {
                 {deliveries.map((delivery: any) => {
                   const addr = delivery.address as any;
                   const destination = addr 
-                    ? `${addr.name || 'Recipient'}, ${addr.city || ''} (${addr.postal_code || ''})`
+                    ? `${addr.recipient_name || addr.name || 'Recipient'}, ${addr.city || ''} (${addr.postal_code || ''})`
                     : 'No address provided';
 
                   return (

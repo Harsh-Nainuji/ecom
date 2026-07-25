@@ -1,6 +1,8 @@
 import { Flag, MessageSquare, Trash2 } from 'lucide-react';
 import { deleteReview, listReviews } from '../../lib/actions';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Reviews · FabZone Admin',
 };

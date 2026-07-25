@@ -19,6 +19,7 @@ interface AuthContextValue {
   sellerProfile: any | null;
   activeRole: UserRole | null;
   loading: boolean;
+  profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (params: { email: string; password: string; fullName?: string; role?: 'buyer' | 'seller' }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -74,6 +75,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [profileLoading, setProfileLoading] = useState(true);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -84,6 +87,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setSession(newSession);
       if (!newSession) {
         setActiveRole(null);
+        setProfileLoading(false);
       }
     });
 
@@ -110,6 +114,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!session?.user) {
         setProfile(null);
         setSellerProfile(null);
+        setProfileLoading(false);
         return;
       }
 
@@ -133,6 +138,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } else {
         setSellerProfile(null);
       }
+      setProfileLoading(false);
     }
 
     loadProfile();
@@ -195,13 +201,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       sellerProfile,
       activeRole,
       loading,
+      profileLoading,
       signIn,
       signUp,
       signOut,
       refreshProfile,
       setActiveRole,
     }),
-    [session, profile, sellerProfile, activeRole, loading, signIn, signUp, signOut, refreshProfile],
+    [session, profile, sellerProfile, activeRole, loading, profileLoading, signIn, signUp, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

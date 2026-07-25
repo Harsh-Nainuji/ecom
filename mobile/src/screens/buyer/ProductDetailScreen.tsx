@@ -141,9 +141,15 @@ export function ProductDetailScreen() {
               {product.name[0].toUpperCase()}
             </Text>
           )}
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>IN STOCK</Text>
-          </View>
+          {(selectedVariant?.stock ?? 0) > 0 ? (
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>IN STOCK</Text>
+            </View>
+          ) : (
+            <View style={[styles.heroBadge, styles.heroBadgeOos]}>
+              <Text style={[styles.heroBadgeText, styles.heroBadgeTextOos]}>OUT OF STOCK</Text>
+            </View>
+          )}
         </View>
 
         {/* Info card lifts over hero */}
@@ -265,9 +271,9 @@ export function ProductDetailScreen() {
           )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.cartButton, addedToCart && styles.cartButtonAdded, (!selectedVariant && !addedToCart) && styles.cartButtonDisabled]}
+          style={[styles.cartButton, addedToCart && styles.cartButtonAdded, (!selectedVariant || (selectedVariant.stock <= 0) || addedToCart) && styles.cartButtonDisabled]}
           onPress={handleAddToCart}
-          disabled={!selectedVariant || cartLoading || addedToCart}
+          disabled={!selectedVariant || (selectedVariant.stock <= 0) || cartLoading || addedToCart}
           activeOpacity={0.9}
         >
           {cartLoading ? (
@@ -276,7 +282,7 @@ export function ProductDetailScreen() {
             <View style={styles.cartBtnContent}>
               {!addedToCart && <ShoppingBag size={18} color={C.white} strokeWidth={2} />}
               <Text style={BTN.primaryText}>
-                {addedToCart ? 'Added to Cart' : 'Add to Cart — ₹' + effectivePrice.toFixed(0)}
+                {addedToCart ? 'Added to Cart' : selectedVariant && selectedVariant.stock <= 0 ? 'Out of Stock' : 'Add to Cart — ₹' + effectivePrice.toFixed(0)}
               </Text>
             </View>
           )}
@@ -299,6 +305,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: S.sm, paddingVertical: 3,
   },
   heroBadgeText: { color: '#065f46', fontWeight: '800', fontSize: 10, letterSpacing: 1 },
+  heroBadgeOos: { backgroundColor: '#fee2e2' },
+  heroBadgeTextOos: { color: '#991b1b' },
   infoCard: {
     backgroundColor: C.white, borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl,
     marginTop: -S.xl, padding: S.lg, gap: S.md,

@@ -1,20 +1,26 @@
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Package, ClipboardList, CreditCard, AlertTriangle } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { fetchSellerDashboardStats, type SellerDashboardStats } from '../../lib/api/seller';
+import type { SellerTabParamList } from '../../navigation/SellerTabs';
 import { C, S, R, T } from '../../lib/theme';
 
-const QUICK_ACTIONS = [
-  { label: 'Add Product', icon: Plus },
-  { label: 'View Orders', icon: Package },
-  { label: 'My Listings', icon: ClipboardList },
+type SellerTabNav = BottomTabNavigationProp<SellerTabParamList>;
+
+const QUICK_ACTIONS: { label: string; icon: any; tab?: keyof SellerTabParamList }[] = [
+  { label: 'Add Product', icon: Plus, tab: 'SellerProducts' },
+  { label: 'View Orders', icon: Package, tab: 'SellerOrders' },
+  { label: 'My Listings', icon: ClipboardList, tab: 'SellerProducts' },
   { label: 'Payouts', icon: CreditCard },
 ];
 
 export function SellerDashboardScreen() {
   const { session, profile } = useAuth();
+  const navigation = useNavigation<SellerTabNav>();
   const [stats, setStats] = useState<SellerDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +60,12 @@ export function SellerDashboardScreen() {
 
   const recentOrders = stats?.recentOrders ?? [];
 
-  const handleQuickAction = (label: string) => {
-    Alert.alert(label, 'This action will be available soon.');
+  const handleQuickAction = (action: typeof QUICK_ACTIONS[number]) => {
+    if (action.tab) {
+      navigation.navigate(action.tab);
+    } else {
+      Alert.alert(action.label, 'This feature is coming soon.');
+    }
   };
 
   const renderDashboard = () => (
@@ -93,7 +103,7 @@ export function SellerDashboardScreen() {
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
-            <TouchableOpacity key={a.label} style={styles.actionBtn} activeOpacity={0.8} onPress={() => handleQuickAction(a.label)}>
+            <TouchableOpacity key={a.label} style={styles.actionBtn} activeOpacity={0.8} onPress={() => handleQuickAction(a)}>
               <Icon size={20} color={C.rose} strokeWidth={2} />
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>

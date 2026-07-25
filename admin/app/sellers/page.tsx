@@ -1,6 +1,8 @@
 import { Ban, CheckCircle2, Clock, ShoppingBag, XCircle } from 'lucide-react';
 import { approveSeller, listSellers, rejectSeller, suspendSeller, toggleUserBlock } from '../../lib/actions';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Sellers · FabZone Admin',
 };

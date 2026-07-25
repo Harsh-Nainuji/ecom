@@ -2,6 +2,8 @@ import { Image } from 'lucide-react';
 import { listBanners } from '../../lib/actions';
 import { BannersManager } from './BannersManager';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Home Banners · FabZone Admin',
 };

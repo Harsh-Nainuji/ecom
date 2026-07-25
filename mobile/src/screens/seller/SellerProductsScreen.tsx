@@ -45,6 +45,7 @@ export function SellerProductsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isNewProduct, setIsNewProduct] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -86,23 +87,27 @@ export function SellerProductsScreen() {
     load();
   };
 
-  const handleAddProduct = async () => {
-    if (!session?.user) return;
-    setSaving(true);
-    try {
-      await upsertSellerProduct(session.user.id, {
-        name: 'New Premium Listing',
-        price: 999,
-        description: 'Edit this description to specify product features and sizing details.',
-        category_id: categories[0]?.id ?? '',
-        status: 'draft',
-      });
-      await load();
-    } catch (err) {
-      Alert.alert('Failed to add product', (err as Error).message);
-    } finally {
-      setSaving(false);
-    }
+  const handleAddProduct = () => {
+    // Open a blank edit modal instead of silently creating a placeholder
+    const blankProduct: Product = {
+      id: '',
+      seller_id: session?.user?.id ?? '',
+      name: '',
+      price: 0,
+      description: '',
+      category_id: categories[0]?.id ?? '',
+      status: 'draft',
+      commission_rate: 0,
+      product_images: [],
+      product_variants: [],
+    };
+    setIsNewProduct(true);
+    setEditingProduct(blankProduct);
+    setEditName('');
+    setEditPrice('');
+    setEditDesc('');
+    setEditCategoryId(categories[0]?.id ?? '');
+    setEditStatus('draft');
   };
 
   const handleAdjustStock = async (variantId: string | undefined, delta: number) => {
@@ -134,6 +139,7 @@ export function SellerProductsScreen() {
   };
 
   const openEditModal = (product: Product) => {
+    setIsNewProduct(false);
     setEditingProduct(product);
     setEditName(product.name);
     setEditPrice(product.price.toString());
@@ -144,29 +150,39 @@ export function SellerProductsScreen() {
 
   const closeEditModal = () => {
     setEditingProduct(null);
+    setIsNewProduct(false);
   };
 
   const handleSaveProduct = async () => {
     if (!editingProduct || !session?.user) return;
     const priceNum = parseFloat(editPrice);
+    if (!editName.trim()) {
+      Alert.alert('Name required', 'Please enter a product name.');
+      return;
+    }
     if (isNaN(priceNum) || priceNum <= 0) {
       Alert.alert('Invalid price', 'Please enter a valid price greater than 0.');
       return;
     }
 
+    setSaving(true);
     try {
-      await upsertSellerProduct(session.user.id, {
-        id: editingProduct.id,
+      const productId = await upsertSellerProduct(session.user.id, {
+        ...(isNewProduct ? {} : { id: editingProduct.id }),
         name: editName.trim(),
         price: priceNum,
         description: editDesc.trim(),
         category_id: editCategoryId || null,
         status: editStatus,
       });
+
       closeEditModal();
-      refresh();
+      // Reload full list so the saved/new product appears immediately
+      await load();
     } catch (err) {
       Alert.alert('Save failed', (err as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -377,7 +393,7 @@ export function SellerProductsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Product</Text>
+            <Text style={styles.modalTitle}>{isNewProduct ? 'Add Product' : 'Edit Product'}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Product Name</Text>
@@ -412,32 +428,39 @@ export function SellerProductsScreen() {
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
-                  {(editingProduct?.product_images || []).map((img) => {
-                    const fullUrl = getProductImageUrl(img.image_url);
-                    return (
-                      <View key={img.id} style={styles.imageContainer}>
-                        <Image source={{ uri: fullUrl || undefined }} style={styles.previewImage} />
-                        <TouchableOpacity
-                          style={styles.deleteImageBtn}
-                          onPress={() => handleDeleteImage(img.id, img.image_url)}
-                        >
-                          <Text style={styles.deleteImageBtnText}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                  {(editingProduct?.product_images?.length || 0) < 5 && (
-                    <TouchableOpacity style={styles.addImageBtn} onPress={handleAddImage}>
-                      <Text style={styles.addImageBtnText}>+</Text>
-                      <Text style={styles.addImageSubtext}>Add Image</Text>
-                    </TouchableOpacity>
-                  )}
-                </ScrollView>
-                <Text style={[T.caption, { marginTop: 4 }]}>Maximum 5 images. Under 5MB per image.</Text>
-              </View>
+              {!isNewProduct && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
+                    {(editingProduct?.product_images || []).map((img) => {
+                      const fullUrl = getProductImageUrl(img.image_url);
+                      return (
+                        <View key={img.id} style={styles.imageContainer}>
+                          <Image source={{ uri: fullUrl || undefined }} style={styles.previewImage} />
+                          <TouchableOpacity
+                            style={styles.deleteImageBtn}
+                            onPress={() => handleDeleteImage(img.id, img.image_url)}
+                          >
+                            <Text style={styles.deleteImageBtnText}>×</Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                    {(editingProduct?.product_images?.length || 0) < 5 && (
+                      <TouchableOpacity style={styles.addImageBtn} onPress={handleAddImage}>
+                        <Text style={styles.addImageBtnText}>+</Text>
+                        <Text style={styles.addImageSubtext}>Add Image</Text>
+                      </TouchableOpacity>
+                    )}
+                  </ScrollView>
+                  <Text style={[T.caption, { marginTop: 4 }]}>Maximum 5 images. Under 5MB per image.</Text>
+                </View>
+              )}
+              {isNewProduct && (
+                <View style={[styles.inputGroup, { backgroundColor: '#fffbeb', borderRadius: R.md, padding: S.sm, borderWidth: 1, borderColor: '#fde68a' }]}>
+                  <Text style={[T.caption, { color: '#92400e' }]}>Save the product first, then open it to add images.</Text>
+                </View>
+              )}
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Category</Text>
@@ -493,14 +516,16 @@ export function SellerProductsScreen() {
                 <TouchableOpacity style={styles.cancelBtn} onPress={closeEditModal}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProduct}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProduct} disabled={saving}>
+                  <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteProduct}>
-                <Text style={styles.deleteBtnText}>Delete Product</Text>
-              </TouchableOpacity>
+              {!isNewProduct && (
+                <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteProduct}>
+                  <Text style={styles.deleteBtnText}>Delete Product</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </View>

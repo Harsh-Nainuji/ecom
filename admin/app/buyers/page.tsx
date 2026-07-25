@@ -1,6 +1,8 @@
 import { ShieldCheck, ShieldX, Users } from 'lucide-react';
 import { listBuyers, toggleUserBlock } from '../../lib/actions';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Buyers · FabZone Admin',
 };

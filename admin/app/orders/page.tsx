@@ -1,14 +1,17 @@
 import { Truck, Coins } from 'lucide-react';
 import { listOrders } from '../../lib/actions';
 
+export const revalidate = 30; // revalidate at most every 30 seconds
+
 export const metadata = {
   title: 'Orders · FabZone Admin',
 };
 
 const statusBadge: Record<string, string> = {
   pending: 'bg-amber-50 text-[#a0522d] border-[#F2E5D5]',
-  accepted: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-  preparing: 'bg-sky-50 text-sky-600 border-sky-100',
+  paid: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+  packed: 'bg-sky-50 text-sky-600 border-sky-100',
+  shipped: 'bg-blue-50 text-blue-600 border-blue-100',
   out_for_delivery: 'bg-purple-50 text-purple-600 border-purple-100',
   delivered: 'bg-emerald-50 text-emerald-600 border-emerald-100',
   cancelled: 'bg-rose-50 text-rose-600 border-rose-100',

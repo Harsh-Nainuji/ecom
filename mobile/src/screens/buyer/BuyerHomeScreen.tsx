@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -36,6 +36,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export function BuyerHomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -113,6 +114,7 @@ export function BuyerHomeScreen() {
 
   return (
     <FlatList
+      ref={listRef}
       style={styles.container}
       data={products}
       keyExtractor={(item) => item.id}
@@ -171,7 +173,7 @@ export function BuyerHomeScreen() {
                 </View>
                 <Text style={styles.heroTitle}>Style That{'\n'}Speaks You</Text>
                 <Text style={styles.heroSubtitle}>Trendy fashion at your fingertips</Text>
-                <TouchableOpacity style={styles.heroBtn} onPress={() => {}} activeOpacity={0.9}>
+                <TouchableOpacity style={styles.heroBtn} onPress={() => listRef.current?.scrollToOffset({ offset: 400, animated: true })} activeOpacity={0.9}>
                   <Text style={styles.heroBtnText}>Shop Now</Text>
                   <ArrowRight size={12} color={C.rose} strokeWidth={2.5} />
                 </TouchableOpacity>

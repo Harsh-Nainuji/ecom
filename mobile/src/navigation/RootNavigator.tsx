@@ -18,9 +18,9 @@ function LoadingScreen() {
 }
 
 export function RootNavigator() {
-  const { loading, session, profile, sellerProfile, activeRole } = useAuth();
+  const { loading, profileLoading, session, profile, sellerProfile, activeRole } = useAuth();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <LoadingScreen />;
   }
 

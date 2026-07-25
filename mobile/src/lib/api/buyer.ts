@@ -200,7 +200,16 @@ export async function fetchOrderDetail(buyerId: string, id: string) {
     .eq('buyer_id', buyerId)
     .single();
   if (error) throw new Error(error.message);
-  return data as OrderDetail;
+  // Normalize delivery_otps — Supabase may return an array; pick first entry
+  const otps = data.delivery_otps;
+  const normalizedOtp = Array.isArray(otps) ? (otps[0] ?? null) : (otps ?? null);
+  // Normalize order_items — product join may return array
+  const normalizedItems = (data.order_items ?? []).map((item: any) => ({
+    ...item,
+    product: Array.isArray(item.product) ? (item.product[0] ?? item.product) : item.product,
+    variant: Array.isArray(item.variant) ? (item.variant[0] ?? null) : (item.variant ?? null),
+  }));
+  return { ...data, delivery_otps: normalizedOtp, order_items: normalizedItems } as OrderDetail;
 }
 
 export async function createRazorpayOrder(addressId: string) {

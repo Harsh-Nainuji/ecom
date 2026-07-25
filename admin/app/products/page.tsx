@@ -1,6 +1,8 @@
 import { PackageSearch, Trash2 } from 'lucide-react';
 import { deleteProduct, listProducts } from '../../lib/actions';
 
+export const revalidate = 30;
+
 export const metadata = {
   title: 'Products · FabZone Admin',
 };

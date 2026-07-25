@@ -72,7 +72,7 @@ export async function fetchDeliveryOrder(orderId: string) {
         quantity: item.quantity,
         total_price: Number(item.total_price ?? 0),
       })) ?? [],
-    delivery_otps: data.delivery_otps ?? null,
+    delivery_otps: Array.isArray(data.delivery_otps) ? (data.delivery_otps[0] ?? null) : (data.delivery_otps ?? null),
     delivery_status: (data.delivery_status ?? 'unassigned') as DeliveryState,
     delivery_partner_id: data.delivery_partner_id,
   } satisfies DeliveryOrderDetail;
@@ -93,10 +93,13 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     .from('delivery_otps')
     .select('otp_code, expires_at, used, attempt_count')
     .eq('order_id', orderId)
+    .eq('used', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single();
 
   if (error) throw new Error(error.message);
-  if (!data) throw new Error('OTP not found');
+  if (!data) throw new Error('No active OTP found for this delivery');
 
   const nextAttempts = (data.attempt_count ?? 0) + 1;
   const now = Date.now();
@@ -107,7 +110,7 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
   }
 
   if (expiryTime && expiryTime < now) {
-    throw new Error('OTP expired. Ask the seller to regenerate.');
+    throw new Error('OTP has expired. Ask the customer to request a redelivery.');
   }
 
   if (data.otp_code.trim() !== otpInput.trim()) {

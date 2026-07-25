@@ -117,10 +117,10 @@ export async function getAdminDashboardStats() {
     cancelledOrderCount: cancelledOrders ?? 0,
     recentOrders: (recentOrders ?? []).map((order: any) => ({
       id: order.id,
-      buyer: order.profiles?.full_name ?? 'Buyer',
+      buyer: Array.isArray(order.profiles) ? (order.profiles[0]?.full_name ?? 'Buyer') : (order.profiles?.full_name ?? 'Buyer'),
       amount: Number(order.total_amount ?? 0),
       status: order.order_status,
-      itemCount: Array.isArray(order.order_items) ? order.order_items.length : 0,
+      itemCount: Array.isArray(order.order_items) ? (order.order_items[0]?.count ?? order.order_items.length) : 0,
       placedAt: order.placed_at,
     })),
     sellerPipeline: sellerPipeline.map((seller: any) => ({
