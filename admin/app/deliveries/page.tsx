@@ -1,5 +1,6 @@
 import { Truck, MapPin } from 'lucide-react';
-import { listDeliveries } from '../../lib/actions';
+import { listDeliveries, listDeliveryPartners } from '../../lib/actions';
+import { DeliveryPartnersManager } from './DeliveryPartnersManager';
 
 export const revalidate = 30;
 
@@ -16,7 +17,7 @@ const deliveryStatusBadge: Record<string, string> = {
 };
 
 export default async function DeliveriesPage() {
-  const deliveries = await listDeliveries();
+  const [deliveries, partners] = await Promise.all([listDeliveries(), listDeliveryPartners()]);
 
   return (
     <div className="flex flex-col gap-6 px-10 py-8">
@@ -30,6 +31,8 @@ export default async function DeliveriesPage() {
           {deliveries.length} shipments
         </div>
       </div>
+
+      <DeliveryPartnersManager initialPartners={partners} />
 
       <div className="rounded-2xl border border-[#F7E4E6] bg-white p-6 premium-shadow">
         {deliveries.length === 0 ? (

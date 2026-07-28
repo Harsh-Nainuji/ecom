@@ -236,6 +236,95 @@ export async function listDeliveries() {
   }));
 }
 
+export async function listDeliveryPartners() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status)')
+    .eq('role', 'delivery')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: any) => {
+    const da = Array.isArray(row.delivery_accounts) ? row.delivery_accounts[0] : row.delivery_accounts;
+    return {
+      id: row.id,
+      fullName: row.full_name ?? '—',
+      phone: row.phone ?? da?.phone ?? '—',
+      code: da?.code ?? '—',
+      vehicleDetails: da?.vehicle_details ?? '—',
+      status: da?.status ?? 'unassigned',
+      isBlocked: row.is_blocked ?? false,
+      createdAt: row.created_at,
+    };
+  });
+}
+
+export async function createDeliveryPartner(payload: {
+  fullName: string;
+  email: string;
+  phone: string;
+  vehicleDetails?: string;
+}) {
+  const supabase = getSupabaseAdmin();
+  const tempPassword = `Fz${Math.random().toString(36).slice(2, 8)}${Math.floor(Math.random() * 100)}!`;
+
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: payload.email.trim().toLowerCase(),
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: { full_name: payload.fullName, role: 'delivery' },
+  });
+  if (authError || !authData?.user) {
+    throw new Error(authError?.message ?? 'Failed to create auth user');
+  }
+
+  const userId = authData.user.id;
+
+  const { error: profileError } = await supabase.from('profiles').upsert(
+    {
+      id: userId,
+      full_name: payload.fullName,
+      phone: payload.phone,
+      role: 'delivery',
+    },
+    { onConflict: 'id' },
+  );
+  if (profileError) {
+    await supabase.auth.admin.deleteUser(userId);
+    throw new Error(profileError.message);
+  }
+
+  const code = `DP${Math.floor(1000 + Math.random() * 9000)}`;
+  const { error: accountError } = await supabase.from('delivery_accounts').insert({
+    profile_id: userId,
+    code,
+    phone: payload.phone,
+    vehicle_details: payload.vehicleDetails ?? null,
+    status: 'unassigned',
+  });
+  if (accountError) {
+    await supabase.auth.admin.deleteUser(userId);
+    throw new Error(accountError.message);
+  }
+
+  revalidatePath('/deliveries');
+  return { email: payload.email, tempPassword, code };
+}
+
+export async function blockDeliveryPartner(id: string, block: boolean) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('profiles').update({ is_blocked: block }).eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
+}
+
+export async function deleteDeliveryPartner(id: string) {
+  const supabase = getSupabaseAdmin();
+  const { error: authError } = await supabase.auth.admin.deleteUser(id);
+  if (authError) throw new Error(authError.message);
+  revalidatePath('/deliveries');
+}
+
 export async function listBanners() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
