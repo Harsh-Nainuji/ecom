@@ -1,7 +1,4 @@
-// @ts-nocheck
-/// <reference types="jsr:@supabase/functions-js" />
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { createClient } from 'npm:@supabase/supabase-js@2.46.1';
 
 interface CreateOrderPayload {
   address_id: string;
@@ -131,10 +128,6 @@ Deno.serve(async (req: Request) => {
 
   const uniqueSellers = [...new Set(normalized.map((item: any) => item.sellerId))];
 
-  if (uniqueSellers.length !== 1) {
-    return Response.json({ error: 'Checkout is limited to one seller at a time' }, { status: 422 });
-  }
-
   const subtotal = normalized.reduce((sum: number, item: any) => sum + item.unitPrice * item.quantity, 0);
 
   if (subtotal <= 0) {
@@ -149,16 +142,6 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   const commissionPercent = Number(commissionSetting?.commission_percent ?? 0);
-  const commissionAmount = Number(((subtotal * commissionPercent) / 100).toFixed(2));
-  const totalAmount = Number((subtotal + commissionAmount).toFixed(2));
-
-  const orderItemsPayload = normalized.map((item: any) => ({
-    product_id: item.productId,
-    variant_id: item.variantId,
-    quantity: item.quantity,
-    unit_price: item.unitPrice,
-    total_price: Number((item.unitPrice * item.quantity).toFixed(2)),
-  }));
 
   const shippingAddress = {
     recipient_name: address.recipient_name,
@@ -170,21 +153,51 @@ Deno.serve(async (req: Request) => {
     postal_code: address.postal_code,
   };
 
-  const { data: createdOrder, error: createError } = await supabase.rpc('create_order_with_items', {
-    p_buyer_id: user.id,
-    p_seller_id: uniqueSellers[0],
-    p_shipping_address: shippingAddress,
-    p_subtotal: Number(subtotal.toFixed(2)),
-    p_commission: commissionAmount,
-    p_total: totalAmount,
-    p_order_items: orderItemsPayload,
-    p_razorpay_order_id: razorpayOrderId,
-    p_razorpay_payment_id: razorpayPaymentId,
-  });
-
-  if (createError || !createdOrder) {
-    return Response.json({ error: 'Failed to store order', details: createError?.message }, { status: 500 });
+  // Group cart items by seller so each seller gets their own order record,
+  // while the buyer is charged once for the combined total via Razorpay.
+  const itemsBySeller = new Map<string, typeof normalized>();
+  for (const item of normalized) {
+    const existing = itemsBySeller.get(item.sellerId) ?? [];
+    existing.push(item);
+    itemsBySeller.set(item.sellerId, existing);
   }
 
-  return Response.json({ order_id: createdOrder });
+  const orderIds: string[] = [];
+
+  for (const [sellerId, items] of itemsBySeller.entries()) {
+    const sellerSubtotal = items.reduce((sum: number, item: any) => sum + item.unitPrice * item.quantity, 0);
+    const sellerCommission = Number(((sellerSubtotal * commissionPercent) / 100).toFixed(2));
+    const sellerTotal = Number((sellerSubtotal + sellerCommission).toFixed(2));
+
+    const orderItemsPayload = items.map((item: any) => ({
+      product_id: item.productId,
+      variant_id: item.variantId,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_price: Number((item.unitPrice * item.quantity).toFixed(2)),
+    }));
+
+    const { data: createdOrder, error: createError } = await supabase.rpc('create_order_with_items', {
+      p_buyer_id: user.id,
+      p_seller_id: sellerId,
+      p_shipping_address: shippingAddress,
+      p_subtotal: Number(sellerSubtotal.toFixed(2)),
+      p_commission: sellerCommission,
+      p_total: sellerTotal,
+      p_order_items: orderItemsPayload,
+      p_razorpay_order_id: razorpayOrderId,
+      p_razorpay_payment_id: razorpayPaymentId,
+    });
+
+    if (createError || !createdOrder) {
+      return Response.json(
+        { error: 'Failed to store order', details: createError?.message, partial_order_ids: orderIds },
+        { status: 500 },
+      );
+    }
+
+    orderIds.push(createdOrder);
+  }
+
+  return Response.json({ order_id: orderIds[0], order_ids: orderIds });
 });

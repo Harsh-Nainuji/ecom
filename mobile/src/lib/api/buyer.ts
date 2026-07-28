@@ -230,7 +230,7 @@ export async function createOrder(payload: {
     body: payload,
   });
   if (error) throw new Error(error.message);
-  return data as { order_id: string };
+  return data as { order_id: string; order_ids: string[] };
 }
 
 export async function cancelOrder(buyerId: string, orderId: string) {

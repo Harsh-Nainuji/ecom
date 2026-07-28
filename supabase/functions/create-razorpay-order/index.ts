@@ -1,7 +1,4 @@
-// @ts-nocheck
-/// <reference types="jsr:@supabase/functions-js" />
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+import { createClient } from 'npm:@supabase/supabase-js@2.46.1';
 
 interface AddressRow {
   id: string;
@@ -144,10 +141,6 @@ Deno.serve(async (req: Request) => {
 
   const uniqueSellers = [...new Set(normalized.map((item: NormalizedCartItem) => item.sellerId))];
 
-  if (uniqueSellers.length !== 1) {
-    return Response.json({ error: 'Checkout is limited to one seller at a time' }, { status: 422 });
-  }
-
   const subtotal = normalized.reduce((sum: number, item: NormalizedCartItem) => sum + item.unitPrice * item.quantity, 0);
 
   if (subtotal <= 0) {
@@ -170,7 +163,7 @@ Deno.serve(async (req: Request) => {
       payment_capture: 1,
       notes: {
         buyer_id: user.id,
-        seller_id: uniqueSellers[0],
+        seller_ids: uniqueSellers.join(','),
         address_id: address.id,
       },
     }),
@@ -194,7 +187,7 @@ Deno.serve(async (req: Request) => {
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
     subtotal,
-    seller_id: uniqueSellers[0],
+    seller_ids: uniqueSellers,
     receipt,
     prefill: {
       name: address.recipient_name ?? profile?.full_name ?? 'FabZone Buyer',

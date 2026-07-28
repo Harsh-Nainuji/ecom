@@ -93,7 +93,16 @@ export function CheckoutScreen() {
       });
 
       await refresh();
-      navigation.replace('OrderDetail', { orderId: confirmation.order_id });
+
+      if (confirmation.order_ids && confirmation.order_ids.length > 1) {
+        Alert.alert(
+          'Order placed',
+          `Your cart had items from ${confirmation.order_ids.length} different sellers, so it was split into ${confirmation.order_ids.length} separate orders for shipping. You can view each one from Order History.`,
+          [{ text: 'View First Order', onPress: () => navigation.replace('OrderDetail', { orderId: confirmation.order_ids[0] }) }],
+        );
+      } else {
+        navigation.replace('OrderDetail', { orderId: confirmation.order_id });
+      }
     } catch (error) {
       const description = (error as { description?: string })?.description;
       if (description) {
