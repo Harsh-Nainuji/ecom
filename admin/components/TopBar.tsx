@@ -1,19 +1,16 @@
-import { Bell, Search, Mail, User } from 'lucide-react';
+import { Bell, Search, Mail } from 'lucide-react';
 
 export function TopBar() {
   return (
-    <header className="flex items-center justify-between px-8 py-6 bg-white">
+    <header className="flex items-center justify-between px-8 py-6 bg-white border-b border-slate-50">
       {/* Search Bar */}
       <div className="flex w-full max-w-md items-center gap-2 rounded-full border border-slate-100 bg-slate-50 px-4 py-2.5 transition-colors focus-within:border-slate-200 focus-within:bg-white shadow-sm">
         <Search className="h-4 w-4 text-slate-400" />
         <input 
           type="text" 
-          placeholder="Search task" 
+          placeholder="Search..." 
           className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
         />
-        <div className="flex items-center justify-center rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-          ⌘F
-        </div>
       </div>
 
       {/* Right Side Icons */}
@@ -35,13 +32,13 @@ export function TopBar() {
         </button>
         
         {/* Profile */}
-        <div className="ml-2 flex items-center gap-3">
-          <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-white shadow-md bg-slate-200">
-            <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="h-full w-full object-cover" />
+        <div className="ml-2 flex items-center gap-3 border-l border-slate-150 pl-4">
+          <div className="h-9 w-9 overflow-hidden rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center shadow-sm">
+            <span className="text-xs font-black text-slate-600">A</span>
           </div>
           <div className="hidden flex-col md:flex">
-            <span className="text-sm font-bold text-slate-800">Totok Michael</span>
-            <span className="text-xs text-slate-500">tmichael20@mail.com</span>
+            <span className="text-xs font-bold text-slate-800">System Admin</span>
+            <span className="text-[10px] text-slate-400">Control Panel</span>
           </div>
         </div>
       </div>
