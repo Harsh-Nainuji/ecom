@@ -11,6 +11,7 @@ export interface DeliveryPartner {
   code: string;
   vehicleDetails: string;
   status: string;
+  accountStatus: 'pending' | 'approved' | 'rejected' | 'suspended';
   isBlocked: boolean;
   createdAt: string;
 }
@@ -53,6 +54,19 @@ export function DeliveryPartnersManager({ initialPartners }: { initialPartners: 
       try {
         await blockDeliveryPartner(id, block);
         setPartners((prev) => prev.map((p) => (p.id === id ? { ...p, isBlocked: block } : p)));
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    });
+  }
+
+  async function handleStatusUpdate(id: string, status: 'approved' | 'rejected' | 'suspended') {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const { updateDeliveryPartnerStatus } = await import('../../lib/actions');
+        await updateDeliveryPartnerStatus(id, status);
+        setPartners((prev) => prev.map((p) => (p.id === id ? { ...p, accountStatus: status } : p)));
       } catch (err) {
         setError((err as Error).message);
       }
@@ -160,18 +174,49 @@ export function DeliveryPartnersManager({ initialPartners }: { initialPartners: 
                     <td className="py-3 text-slate-500">{partner.phone}</td>
                     <td className="py-3 text-slate-500">{partner.vehicleDetails}</td>
                     <td className="py-3">
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          partner.isBlocked
-                            ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                        }`}
-                      >
-                        {partner.isBlocked ? 'Blocked' : 'Active'}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase w-fit ${
+                            partner.isBlocked
+                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                              : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          }`}
+                        >
+                          {partner.isBlocked ? 'Blocked' : 'Active'}
+                        </span>
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase w-fit ${
+                            partner.accountStatus === 'pending'
+                              ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                              : partner.accountStatus === 'approved'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : 'bg-rose-50 text-rose-600 border border-rose-200'
+                          }`}
+                        >
+                          {partner.accountStatus}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 text-right pr-2">
                       <div className="flex justify-end gap-2">
+                        {partner.accountStatus === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleStatusUpdate(partner.id, 'approved')}
+                              disabled={pending}
+                              className="glow-btn inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(partner.id, 'rejected')}
+                              disabled={pending}
+                              className="glow-btn inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => handleBlock(partner.id, !partner.isBlocked)}
                           disabled={pending}

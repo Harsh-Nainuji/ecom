@@ -22,6 +22,7 @@ create type public.order_status as enum (
 );
 create type public.payment_status as enum ('pending', 'authorized', 'paid', 'failed', 'refunded');
 create type public.delivery_state as enum ('unassigned', 'assigned', 'out_for_delivery', 'completed', 'failed');
+create type public.delivery_account_status as enum ('pending', 'approved', 'rejected', 'suspended');
 
 -- Tables --------------------------------------------------------------------
 create table if not exists public.profiles (
@@ -79,11 +80,12 @@ create table if not exists public.seller_profiles (
 
 create table if not exists public.delivery_accounts (
   id uuid primary key default gen_random_uuid(),
-  profile_id uuid references public.profiles (id) on delete cascade,
+  profile_id uuid references public.profiles (id) on delete cascade unique,
   code text,
   phone text,
   vehicle_details text,
   status public.delivery_state not null default 'unassigned',
+  account_status public.delivery_account_status not null default 'pending',
   created_at timestamptz not null default now()
 );
 
@@ -335,6 +337,30 @@ create trigger trg_generate_delivery_otp
   for each row
   when (new.order_status = 'out_for_delivery' and coalesce(old.order_status, 'pending') <> 'out_for_delivery')
   execute function public.handle_out_for_delivery_otp();
+
+-- handle delivery profile creation
+create or replace function public.handle_new_delivery_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role = 'delivery' then
+    insert into public.delivery_accounts (profile_id, account_status)
+    values (new.id, 'pending')
+    on conflict (profile_id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_delivery_profile_created on public.profiles;
+create trigger on_delivery_profile_created
+  after insert or update of role on public.profiles
+  for each row
+  when (new.role = 'delivery')
+  execute function public.handle_new_delivery_profile();
 
 create table if not exists public.reviews (
   id uuid primary key default gen_random_uuid(),

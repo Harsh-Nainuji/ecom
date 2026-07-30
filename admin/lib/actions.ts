@@ -240,7 +240,7 @@ export async function listDeliveryPartners() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status)')
+    .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status, account_status)')
     .eq('role', 'delivery')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -253,10 +253,21 @@ export async function listDeliveryPartners() {
       code: da?.code ?? '—',
       vehicleDetails: da?.vehicle_details ?? '—',
       status: da?.status ?? 'unassigned',
+      accountStatus: da?.account_status ?? 'pending',
       isBlocked: row.is_blocked ?? false,
       createdAt: row.created_at,
     };
   });
+}
+
+export async function updateDeliveryPartnerStatus(id: string, status: 'approved' | 'rejected' | 'suspended') {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('delivery_accounts')
+    .update({ account_status: status })
+    .eq('profile_id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
 }
 
 export async function createDeliveryPartner(payload: {
@@ -295,13 +306,14 @@ export async function createDeliveryPartner(payload: {
   }
 
   const code = `DP${Math.floor(1000 + Math.random() * 9000)}`;
-  const { error: accountError } = await supabase.from('delivery_accounts').insert({
+  const { error: accountError } = await supabase.from('delivery_accounts').upsert({
     profile_id: userId,
     code,
     phone: payload.phone,
     vehicle_details: payload.vehicleDetails ?? null,
     status: 'unassigned',
-  });
+    account_status: 'approved',
+  }, { onConflict: 'profile_id' });
   if (accountError) {
     await supabase.auth.admin.deleteUser(userId);
     throw new Error(accountError.message);

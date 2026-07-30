@@ -149,6 +149,19 @@ export function OrderDetailScreen() {
         </View>
       </View>
 
+      {/* OTP Display */}
+      {otpVisible && order?.delivery_otps?.otp_code && (
+        <View style={[CARD.base, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8', borderWidth: 1 }]}>
+          <Text style={[T.h4, { color: '#9d174d', marginBottom: 4 }]}>Delivery OTP</Text>
+          <Text style={[T.bodySmall, { color: '#831843', marginBottom: 12 }]}>
+            Share this secure code with your delivery executive. It is valid for 24 hours.
+          </Text>
+          <Text style={{ fontSize: 36, fontWeight: '900', color: '#be185d', letterSpacing: 12, textAlign: 'center' }}>
+            {order.delivery_otps.otp_code}
+          </Text>
+        </View>
+      )}
+
       {/* Cancel action */}
       {canCancel && (
         <TouchableOpacity

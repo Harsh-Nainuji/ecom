@@ -27,11 +27,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full bg-slate-50 text-slate-900">
-        <div className="flex min-h-screen bg-slate-50">
+        <div className="flex h-screen bg-[#FAFAFC]">
           <SidebarNav />
-          <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col overflow-hidden">
             <TopBar />
-            <main className="flex-1 bg-gradient-to-b from-white to-slate-50">{children}</main>
+            <main className="flex-1 overflow-hidden p-4 sm:p-6">
+              <div className="h-full w-full overflow-y-auto bg-white rounded-3xl border border-[#F7E4E6] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
+                {children}
+              </div>
+            </main>
           </div>
         </div>
       </body>

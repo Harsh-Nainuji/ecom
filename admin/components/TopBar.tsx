@@ -2,7 +2,7 @@ import { Bell, ShieldCheck } from 'lucide-react';
 
 export function TopBar() {
   return (
-    <header className="flex items-center justify-between border-b border-[#F7E4E6] bg-white/70 px-10 py-4.5 backdrop-blur-md">
+    <header className="flex items-center justify-between px-10 py-5 bg-[#FAFAFC]">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#c2185b]">
           FabZone Admin Control

@@ -9,7 +9,7 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-brand-border bg-[#0E0E17] p-6 text-slate-200">
+    <aside className="w-64 border-r border-[#F7E4E6] bg-[#0E0E17] p-6 text-slate-200">
       <div className="mb-10 flex items-center gap-3">
         <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-[#c2185b] to-[#e91e63] flex items-center justify-center font-bold text-white tracking-widest text-sm shadow-md">
           F
