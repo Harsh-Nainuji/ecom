@@ -1,27 +1,49 @@
-import { Bell, ShieldCheck } from 'lucide-react';
+import { Bell, Search, Mail, User } from 'lucide-react';
 
 export function TopBar() {
   return (
-    <header className="flex items-center justify-between px-10 py-5 bg-[#FAFAFC]">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#c2185b]">
-          FabZone Admin Control
-        </p>
-        <h2 className="text-xl font-extrabold text-[#1A1A2D] tracking-tight editorial-header">
-          Operational Center
-        </h2>
-      </div>
-      <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
-        <div className="flex items-center gap-1.5 rounded-full border border-[#E9D5D8] bg-[#FFF0F2] px-3.5 py-1.5 text-[#c2185b]">
-          <ShieldCheck className="h-3.5 w-3.5 text-[#c2185b]" />
-          <span>Security RLS Active</span>
+    <header className="flex items-center justify-between px-8 py-6 bg-white">
+      {/* Search Bar */}
+      <div className="flex w-full max-w-md items-center gap-2 rounded-full border border-slate-100 bg-slate-50 px-4 py-2.5 transition-colors focus-within:border-slate-200 focus-within:bg-white shadow-sm">
+        <Search className="h-4 w-4 text-slate-400" />
+        <input 
+          type="text" 
+          placeholder="Search task" 
+          className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+        />
+        <div className="flex items-center justify-center rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+          ⌘F
         </div>
+      </div>
+
+      {/* Right Side Icons */}
+      <div className="flex items-center gap-4">
         <button
           type="button"
-          className="rounded-full border border-slate-200 p-2.5 text-slate-600 transition-all hover:bg-slate-50 hover:border-slate-300"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800 shadow-sm"
         >
-          <Bell className="h-4 w-4" />
+          <Mail className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800 shadow-sm"
+        >
+          <div className="relative">
+            <Bell className="h-4 w-4" />
+            <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2 rounded-full bg-rose-500"></span>
+          </div>
+        </button>
+        
+        {/* Profile */}
+        <div className="ml-2 flex items-center gap-3">
+          <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-white shadow-md bg-slate-200">
+            <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="h-full w-full object-cover" />
+          </div>
+          <div className="hidden flex-col md:flex">
+            <span className="text-sm font-bold text-slate-800">Totok Michael</span>
+            <span className="text-xs text-slate-500">tmichael20@mail.com</span>
+          </div>
+        </div>
       </div>
     </header>
   );
