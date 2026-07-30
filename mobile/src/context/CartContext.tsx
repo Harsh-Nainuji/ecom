@@ -8,6 +8,7 @@ interface CartContextValue {
   loading: boolean;
   refresh: () => Promise<void>;
   setQuantity: (variantId: string, quantity: number) => Promise<void>;
+  addToCart: (variantId: string, quantity?: number, productId?: string) => Promise<void>;
   remove: (variantId: string) => Promise<void>;
 }
 
@@ -41,6 +42,14 @@ export function CartProvider({ children }: PropsWithChildren) {
     await refresh();
   }, [session?.user, refresh]);
 
+  const addToCart = useCallback(async (variantId: string, quantity: number = 1, productId?: string) => {
+    if (!session?.user) return;
+    const existing = items.find((item) => item.variant_id === variantId || (productId && item.product_variant?.product?.id === productId));
+    const newQty = (existing?.quantity ?? 0) + quantity;
+    await updateCartItem(session.user.id, variantId, newQty, productId);
+    await refresh();
+  }, [session?.user, items, refresh]);
+
   const remove = useCallback(async (variantId: string) => {
     if (!session?.user) return;
     await removeCartItem(session.user.id, variantId);
@@ -52,7 +61,7 @@ export function CartProvider({ children }: PropsWithChildren) {
   }, [refresh, session?.user?.id]);
 
   return (
-    <CartContext.Provider value={{ items, loading, refresh, setQuantity, remove }}>
+    <CartContext.Provider value={{ items, loading, refresh, setQuantity, addToCart, remove }}>
       {children}
     </CartContext.Provider>
   );

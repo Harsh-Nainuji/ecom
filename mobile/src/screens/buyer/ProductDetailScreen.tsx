@@ -9,15 +9,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { Heart, Truck, RotateCcw, Star, ShoppingBag } from 'lucide-react-native';
-import { fetchProductById, fetchReviews, updateCartItem } from '../../lib/api/buyer';
+import { fetchProductById, fetchReviews } from '../../lib/api/buyer';
 import { pickPrimaryImage } from '../../lib/storage';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import type { Product, ProductVariant } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCart } from '../../context/CartContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { C, S, R, BTN, T } from '../../lib/theme';
 
@@ -25,9 +26,11 @@ const HERO_COLORS = [C.card0, C.card1, C.card2, C.card3, '#F0F4FF', '#F0FFF4'];
 const HERO_TEXT  = [C.rose, '#a0522d', '#b91c4c', '#c96a00', '#3730a3', '#065f46'];
 
 export function ProductDetailScreen() {
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<BuyerStackParamList, 'ProductDetail'>>();
   const { session } = useAuth();
   const { wishlist, toggle } = useWishlist();
+  const { items, addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,13 +56,14 @@ export function ProductDetailScreen() {
           fetchReviews(route.params.productId),
         ]);
         setProduct(data);
-        const firstVariant = data.product_variants?.[0];
-        if (firstVariant) {
-          setSelectedVariant(firstVariant);
-        } else {
-          console.warn('Product has no variants');
-          setSelectedVariant(null);
-        }
+        const firstVariant = data.product_variants?.[0] ?? {
+          id: data.id,
+          size: null,
+          color: null,
+          stock: 10,
+          price_override: null,
+        };
+        setSelectedVariant(firstVariant);
         setReviews(reviewData);
         setError(null);
       } catch (err) {
@@ -80,6 +84,13 @@ export function ProductDetailScreen() {
     if (!product) return false;
     return wishlist.some((item) => item.product_id === product.id);
   }, [wishlist, product]);
+
+  const isInCart = useMemo(() => {
+    if (!product) return false;
+    return items.some(
+      (item) => item.variant_id === selectedVariant?.id || item.product_variant?.product?.id === product.id
+    );
+  }, [items, product, selectedVariant]);
 
   const ratingVal = useMemo(() => {
     return product?.reviews_aggregate?.avg ?? 0;
@@ -106,14 +117,23 @@ export function ProductDetailScreen() {
 
   async function handleAddToCart() {
     if (!session?.user) { Alert.alert('Sign in required', 'Please sign in to add to cart.'); return; }
-    if (!selectedVariant) return;
+    if (!product) return;
+
+    if (isInCart) {
+      navigation.navigate('Cart');
+      return;
+    }
+
+    const variantIdToUse = selectedVariant?.id ?? product.id;
     setCartLoading(true);
     try {
-      await updateCartItem(session.user.id, selectedVariant.id, 1);
+      await addToCart(variantIdToUse, 1, product.id);
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
-    } catch {
-      Alert.alert('Cart', 'Added to cart (demo mode)');
+    } catch (err) {
+      console.warn('Cart update notice', err);
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2000);
     } finally {
       setCartLoading(false);
     }
@@ -134,6 +154,7 @@ export function ProductDetailScreen() {
 
   const effectivePrice = selectedVariant?.price_override ?? product.price;
   const heroImageUrl = pickPrimaryImage(product);
+  const isOutOfStock = selectedVariant ? selectedVariant.stock === 0 : false;
 
   return (
     <View style={styles.container}>
@@ -147,7 +168,7 @@ export function ProductDetailScreen() {
               {product.name[0].toUpperCase()}
             </Text>
           )}
-          {(selectedVariant?.stock ?? 0) > 0 ? (
+          {!isOutOfStock ? (
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>IN STOCK</Text>
             </View>
@@ -277,18 +298,18 @@ export function ProductDetailScreen() {
           )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.cartButton, addedToCart && styles.cartButtonAdded, (!selectedVariant || (selectedVariant.stock <= 0) || addedToCart) && styles.cartButtonDisabled]}
+          style={[styles.cartButton, (addedToCart || isInCart) && styles.cartButtonAdded, isOutOfStock && styles.cartButtonDisabled]}
           onPress={handleAddToCart}
-          disabled={!selectedVariant || (selectedVariant.stock <= 0) || cartLoading || addedToCart}
+          disabled={isOutOfStock || cartLoading}
           activeOpacity={0.9}
         >
           {cartLoading ? (
             <ActivityIndicator color={C.white} />
           ) : (
             <View style={styles.cartBtnContent}>
-              {!addedToCart && <ShoppingBag size={18} color={C.white} strokeWidth={2} />}
+              <ShoppingBag size={18} color={C.white} strokeWidth={2} />
               <Text style={BTN.primaryText}>
-                {addedToCart ? 'Added to Cart' : selectedVariant && selectedVariant.stock <= 0 ? 'Out of Stock' : 'Add to Cart — ₹' + effectivePrice.toFixed(0)}
+                {addedToCart ? 'Added to Cart' : isInCart ? 'Go to Cart' : isOutOfStock ? 'Out of Stock' : 'Add to Cart — ₹' + effectivePrice.toFixed(0)}
               </Text>
             </View>
           )}

@@ -408,6 +408,11 @@ create policy "Sellers manage their products"
   );
 
 -- product_images -------------------------------------------------------------
+create policy "Anyone can read product images"
+  on public.product_images
+  for select
+  using (true);
+
 create policy "Sellers manage their product images"
   on public.product_images
   for all
@@ -425,6 +430,11 @@ create policy "Sellers manage their product images"
   );
 
 -- product_variants -----------------------------------------------------------
+create policy "Anyone can read product variants"
+  on public.product_variants
+  for select
+  using (true);
+
 create policy "Sellers manage their product variants"
   on public.product_variants
   for all

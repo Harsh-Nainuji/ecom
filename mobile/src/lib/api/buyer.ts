@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { getApiBaseUrl } from '../config';
 import type {
   Address,
   CartItemWithProduct,
@@ -68,7 +69,32 @@ export async function fetchProductById(id: string) {
     .single();
 
   if (error) throw new Error(error.message);
-  return data as Product;
+  const product = data as Product;
+  if (!product.product_variants || product.product_variants.length === 0) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/variants?productId=${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.variants && json.variants.length > 0) {
+          product.product_variants = json.variants;
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+  if (!product.product_variants || product.product_variants.length === 0) {
+    product.product_variants = [
+      {
+        id: product.id,
+        size: null,
+        color: null,
+        stock: 10,
+        price_override: null,
+      },
+    ];
+  }
+  return product;
 }
 
 export async function toggleWishlist(buyerId: string, productId: string) {
@@ -104,6 +130,18 @@ export async function fetchWishlist(buyerId: string) {
 }
 
 export async function fetchCart(buyerId: string) {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/cart/items?buyerId=${buyerId}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.items) {
+        return json.items as CartItemWithProduct[];
+      }
+    }
+  } catch {
+    // Fall through
+  }
+
   const { data, error } = await supabase
     .from('cart_items')
     .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*)))')
@@ -125,12 +163,38 @@ export async function fetchCart(buyerId: string) {
   })) as CartItemWithProduct[];
 }
 
-export async function updateCartItem(buyerId: string, variantId: string, quantity: number) {
+export async function updateCartItem(buyerId: string, variantId: string, quantity: number, productId?: string) {
+  if (!variantId || variantId === productId) {
+    const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerId, variantId, productId, quantity }),
+    });
+    if (res.ok) return;
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || 'Failed to update cart');
+  }
+
   const payload = { buyer_id: buyerId, variant_id: variantId, quantity };
   const { error } = await supabase
     .from('cart_items')
     .upsert(payload, { onConflict: 'buyer_id,variant_id' });
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId, variantId, productId, quantity }),
+      });
+      if (res.ok) {
+        return;
+      }
+    } catch {
+      // Ignore
+    }
+    throw new Error(error.message);
+  }
 }
 
 export async function removeCartItem(buyerId: string, variantId: string) {

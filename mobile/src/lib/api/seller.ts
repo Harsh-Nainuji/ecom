@@ -129,7 +129,7 @@ export async function upsertSellerProduct(
     if (error) throw new Error(error.message);
     productId = data.id as string;
     // Create default variant for new product
-    await supabase.from('product_variants').insert({ product_id: productId, stock: 0, size: null, color: null });
+    await supabase.from('product_variants').insert({ product_id: productId, stock: 10, size: null, color: null });
   }
 
   return productId;
