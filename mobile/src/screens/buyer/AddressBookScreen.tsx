@@ -61,13 +61,17 @@ export function AddressBookScreen() {
     return <ScreenPlaceholder title="Addresses" subtitle="Sign in to manage your delivery addresses." />;
   }
 
+  const [isAdding, setIsAdding] = useState(false);
+
   const startEdit = (addr?: Address) => {
     setEditing(addr ?? null);
+    setIsAdding(true);
     setForm(addr ? { ...addr } : { ...emptyForm });
   };
 
   const resetForm = () => {
     setEditing(null);
+    setIsAdding(false);
     setForm(emptyForm);
     setFocusedField(null);
   };
@@ -178,7 +182,7 @@ export function AddressBookScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Text style={styles.heading}>Address Book</Text>
-        {editing || form.recipient_name ? (
+        {isAdding || editing || addresses.length === 0 ? (
           renderForm()
         ) : (
           <TouchableOpacity style={styles.addBtn} onPress={() => startEdit()} activeOpacity={0.8}>

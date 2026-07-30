@@ -23,6 +23,8 @@ import { pickPrimaryImage } from '../../lib/storage';
 import type { Category, HomeBanner, Product } from '../../lib/types';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, T } from '../../lib/theme';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { ProductGridSkeleton } from '../../components/ProductSkeleton';
 
 const CARD_PALETTES = [
   { bg: C.card0, text: C.rose },
@@ -105,14 +107,14 @@ export function BuyerHomeScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.pink} />
-        <Text style={[T.caption, { marginTop: S.sm }]}>Loading your store…</Text>
-      </View>
+      <ScreenContainer>
+        <ProductGridSkeleton count={8} />
+      </ScreenContainer>
     );
   }
 
   return (
+    <ScreenContainer>
     <FlatList
       ref={listRef}
       style={styles.container}
@@ -314,6 +316,7 @@ export function BuyerHomeScreen() {
         );
       }}
     />
+    </ScreenContainer>
   );
 }
 

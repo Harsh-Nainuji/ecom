@@ -8,6 +8,7 @@ import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { C, S, R, BTN, T } from '../../lib/theme';
+import { ScreenContainer } from '../../components/ScreenContainer';
 
 const CARD_COLORS = [C.card0, C.card1, C.card2, C.card3];
 
@@ -17,7 +18,11 @@ export function CartScreen() {
   const { session } = useAuth();
 
   if (!session?.user) {
-    return <ScreenPlaceholder title="Cart" subtitle="Sign in to view and manage your cart." />;
+    return (
+      <ScreenContainer>
+        <ScreenPlaceholder title="Cart" subtitle="Sign in to view and manage your cart." />
+      </ScreenContainer>
+    );
   }
 
   const subtotal = items.reduce(
@@ -26,7 +31,8 @@ export function CartScreen() {
   const isEmpty = !loading && items.length === 0;
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
+      <View style={styles.container}>
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -116,7 +122,8 @@ export function CartScreen() {
         </TouchableOpacity>
       </View>
     </View>
-  );
+  </ScreenContainer>
+);
 }
 
 const styles = StyleSheet.create({

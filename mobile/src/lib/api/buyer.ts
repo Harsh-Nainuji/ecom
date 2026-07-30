@@ -276,12 +276,20 @@ export async function fetchOrderDetail(buyerId: string, id: string) {
   return { ...data, delivery_otps: normalizedOtp, order_items: normalizedItems } as OrderDetail;
 }
 
-export async function createRazorpayOrder(addressId: string) {
-  const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
-    body: { address_id: addressId },
+export async function createRazorpayOrder(addressId: string, buyerId?: string) {
+  const user = buyerId ?? (await supabase.auth.getUser()).data.user?.id;
+  const res = await fetch(`${getApiBaseUrl()}/api/orders/razorpay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ buyerId: user, addressId }),
   });
-  if (error) throw new Error(error.message);
-  return data as RazorpayOrderIntent;
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || 'Failed to initialize payment');
+  }
+
+  return (await res.json()) as RazorpayOrderIntent;
 }
 
 export async function createOrder(payload: {
@@ -289,12 +297,27 @@ export async function createOrder(payload: {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+  buyer_id?: string;
 }) {
-  const { data, error } = await supabase.functions.invoke('create-order', {
-    body: payload,
+  const user = payload.buyer_id ?? (await supabase.auth.getUser()).data.user?.id;
+  const res = await fetch(`${getApiBaseUrl()}/api/orders/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      buyerId: user,
+      addressId: payload.address_id,
+      razorpay_order_id: payload.razorpay_order_id,
+      razorpay_payment_id: payload.razorpay_payment_id,
+      razorpay_signature: payload.razorpay_signature,
+    }),
   });
-  if (error) throw new Error(error.message);
-  return data as { order_id: string; order_ids: string[] };
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || 'Failed to complete order placement');
+  }
+
+  return (await res.json()) as { order_id: string; order_ids: string[] };
 }
 
 export async function cancelOrder(buyerId: string, orderId: string) {

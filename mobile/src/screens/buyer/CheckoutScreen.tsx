@@ -5,20 +5,21 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import RazorpayCheckout from 'react-native-razorpay';
+import { openRazorpayCheckout } from '../../lib/razorpay';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Lock, RotateCcw } from 'lucide-react-native';
-import { fetchAddresses, fetchCart, createOrder, createRazorpayOrder } from '../../lib/api/buyer';
+import { fetchAddresses, fetchCart, createOrder, createRazorpayOrder, upsertAddress } from '../../lib/api/buyer';
 import type { Address, CartItemWithProduct } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
-import { C, S, R, BTN, T } from '../../lib/theme';
+import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
 
 export function CheckoutScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
@@ -30,6 +31,18 @@ export function CheckoutScreen() {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
 
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    recipient_name: '',
+    phone: '',
+    line1: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    label: 'Home',
+  });
+
   useEffect(() => {
     async function load() {
       if (!session?.user) return;
@@ -39,11 +52,14 @@ export function CheckoutScreen() {
           fetchAddresses(session.user.id),
           fetchCart(session.user.id),
         ]);
-        setAddresses(addr ?? []);
-        setSelected(addr?.find((a) => a.is_default) ?? addr?.[0] ?? null);
+        const list = addr ?? [];
+        setAddresses(list);
+        setSelected(list.find((a) => a.is_default) ?? list[0] ?? null);
+        if (list.length === 0) {
+          setShowAddForm(true);
+        }
         setCartItems(cart ?? []);
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.warn('Checkout load failed', error);
       } finally {
         setLoading(false);
@@ -52,11 +68,35 @@ export function CheckoutScreen() {
     load();
   }, [session?.user]);
 
+  async function handleSaveInlineAddress() {
+    if (!session?.user) return;
+    if (!addressForm.recipient_name || !addressForm.phone || !addressForm.line1 || !addressForm.city || !addressForm.state || !addressForm.postal_code) {
+      Alert.alert('Missing fields', 'Please fill in recipient name, phone, address line, city, state, and postal code.');
+      return;
+    }
+    setSavingAddress(true);
+    try {
+      const created = await upsertAddress(session.user.id, {
+        ...addressForm,
+        is_default: addresses.length === 0,
+      });
+      const updated = [...addresses, created];
+      setAddresses(updated);
+      setSelected(created);
+      setShowAddForm(false);
+      setAddressForm({ recipient_name: '', phone: '', line1: '', city: '', state: '', postal_code: '', label: 'Home' });
+    } catch (err: any) {
+      Alert.alert('Save failed', err.message || 'Could not save address.');
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
   const subtotal = cartItems.reduce((acc, item) => acc + (item.product_variant?.product.price ?? 0) * item.quantity, 0);
 
   async function handlePlaceOrder() {
     if (!selected) {
-      Alert.alert('Select address', 'Choose a delivery address to continue.');
+      Alert.alert('Select address', 'Choose or add a delivery address to continue.');
       return;
     }
 
@@ -68,9 +108,9 @@ export function CheckoutScreen() {
 
     setPlacing(true);
     try {
-      const intent = await createRazorpayOrder(selected.id);
+      const intent = await createRazorpayOrder(selected.id, session?.user.id);
 
-      const payment = await RazorpayCheckout.open({
+      const payment = await openRazorpayCheckout({
         key: razorpayKey,
         amount: intent.amount,
         currency: intent.currency,
@@ -90,6 +130,7 @@ export function CheckoutScreen() {
         razorpay_order_id: payment.razorpay_order_id,
         razorpay_payment_id: payment.razorpay_payment_id,
         razorpay_signature: payment.razorpay_signature,
+        buyer_id: session?.user.id,
       });
 
       await refresh();
@@ -134,7 +175,88 @@ export function CheckoutScreen() {
         extraData={selected?.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <View style={{ marginBottom: S.md }}>
+            <View style={styles.headerRow}>
+              <Text style={styles.sectionTitle}>Delivery Address</Text>
+              {!showAddForm && (
+                <TouchableOpacity onPress={() => setShowAddForm(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.addBtnText}>+ Add New</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {showAddForm ? (
+              <View style={styles.inlineFormCard}>
+                <Text style={[T.h4, { marginBottom: S.sm }]}>New Delivery Address</Text>
+
+                <TextInput
+                  style={[INPUT.base, { marginBottom: S.xs }]}
+                  placeholder="Recipient Full Name *"
+                  placeholderTextColor={C.muted}
+                  value={addressForm.recipient_name}
+                  onChangeText={(val) => setAddressForm((f) => ({ ...f, recipient_name: val }))}
+                />
+
+                <TextInput
+                  style={[INPUT.base, { marginBottom: S.xs }]}
+                  placeholder="Phone Number *"
+                  placeholderTextColor={C.muted}
+                  keyboardType="phone-pad"
+                  value={addressForm.phone}
+                  onChangeText={(val) => setAddressForm((f) => ({ ...f, phone: val }))}
+                />
+
+                <TextInput
+                  style={[INPUT.base, { marginBottom: S.xs }]}
+                  placeholder="Flat / Building / Street Address *"
+                  placeholderTextColor={C.muted}
+                  value={addressForm.line1}
+                  onChangeText={(val) => setAddressForm((f) => ({ ...f, line1: val }))}
+                />
+
+                <View style={{ flexDirection: 'row', gap: S.sm, marginBottom: S.xs }}>
+                  <TextInput
+                    style={[INPUT.base, { flex: 1 }]}
+                    placeholder="City *"
+                    placeholderTextColor={C.muted}
+                    value={addressForm.city}
+                    onChangeText={(val) => setAddressForm((f) => ({ ...f, city: val }))}
+                  />
+                  <TextInput
+                    style={[INPUT.base, { flex: 1 }]}
+                    placeholder="State *"
+                    placeholderTextColor={C.muted}
+                    value={addressForm.state}
+                    onChangeText={(val) => setAddressForm((f) => ({ ...f, state: val }))}
+                  />
+                </View>
+
+                <TextInput
+                  style={[INPUT.base, { marginBottom: S.md }]}
+                  placeholder="Postal Code / PIN *"
+                  placeholderTextColor={C.muted}
+                  keyboardType="number-pad"
+                  value={addressForm.postal_code}
+                  onChangeText={(val) => setAddressForm((f) => ({ ...f, postal_code: val }))}
+                />
+
+                <View style={{ flexDirection: 'row', gap: S.sm }}>
+                  {addresses.length > 0 && (
+                    <TouchableOpacity style={[BTN.secondary, { flex: 1 }]} onPress={() => setShowAddForm(false)}>
+                      <Text style={BTN.secondaryText}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[BTN.primary, { flex: 1 }, savingAddress && BTN.disabled]}
+                    onPress={handleSaveInlineAddress}
+                    disabled={savingAddress}
+                  >
+                    {savingAddress ? <ActivityIndicator color="#fff" /> : <Text style={BTN.primaryText}>Save & Deliver Here</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+          </View>
         }
         renderItem={({ item }) => {
           const isActive = selected?.id === item.id;
@@ -159,7 +281,14 @@ export function CheckoutScreen() {
           );
         }}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No saved addresses. Add one from your profile.</Text>
+          !showAddForm ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No saved addresses found.</Text>
+              <TouchableOpacity style={[BTN.primary, { marginTop: S.sm }]} onPress={() => setShowAddForm(true)}>
+                <Text style={BTN.primaryText}>+ Add Delivery Address</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
         }
       />
 
@@ -193,7 +322,10 @@ export function CheckoutScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.white },
   listContent: { paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.sm },
-  sectionTitle: { ...T.h3, marginBottom: S.md },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionTitle: { ...T.h3 },
+  addBtnText: { ...T.bodySmall, color: C.rose, fontWeight: '700' },
+  inlineFormCard: { padding: S.md, borderRadius: R.lg, borderWidth: 1, borderColor: C.rose, backgroundColor: C.card0, marginTop: S.sm },
   addressCard: { padding: S.md, borderRadius: R.lg, marginBottom: S.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
   addressCardActive: { borderColor: C.rose, backgroundColor: C.card2 },
   addressRadioRow: { flexDirection: 'row', gap: S.md, alignItems: 'flex-start' },
@@ -203,7 +335,8 @@ const styles = StyleSheet.create({
   addressName: { ...T.h4, marginBottom: 2 },
   addressLine: { ...T.bodySmall, color: C.text3 },
   addressPhone: { ...T.caption, marginTop: 2 },
-  emptyText: { ...T.bodySmall, textAlign: 'center', color: C.muted, marginTop: S.xl },
+  emptyContainer: { alignItems: 'center', paddingVertical: S.xl },
+  emptyText: { ...T.bodySmall, textAlign: 'center', color: C.muted },
   summary: { borderTopWidth: 1, borderColor: C.border, backgroundColor: C.white, padding: S.lg, gap: S.sm },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { ...T.bodySmall, color: C.muted },
