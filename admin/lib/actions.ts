@@ -238,13 +238,27 @@ export async function listDeliveries() {
 
 export async function listDeliveryPartners() {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let response = await supabase
     .from('profiles')
     .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status, account_status)')
     .eq('role', 'delivery')
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row: any) => {
+
+  if (response.error) {
+    const msg = response.error.message.toLowerCase();
+    if (msg.includes('column') && msg.includes('account_status')) {
+      // Fallback: query without the account_status column until the migration is applied
+      response = await supabase
+        .from('profiles')
+        .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status)')
+        .eq('role', 'delivery')
+        .order('created_at', { ascending: false });
+    }
+  }
+
+  if (response.error) throw new Error(response.error.message);
+  
+  return (response.data ?? []).map((row: any) => {
     const da = Array.isArray(row.delivery_accounts) ? row.delivery_accounts[0] : row.delivery_accounts;
     return {
       id: row.id,
@@ -253,7 +267,7 @@ export async function listDeliveryPartners() {
       code: da?.code ?? '—',
       vehicleDetails: da?.vehicle_details ?? '—',
       status: da?.status ?? 'unassigned',
-      accountStatus: da?.account_status ?? 'pending',
+      accountStatus: da?.account_status ?? 'approved', // Default to approved if column not present yet
       isBlocked: row.is_blocked ?? false,
       createdAt: row.created_at,
     };
