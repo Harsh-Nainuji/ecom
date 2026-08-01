@@ -292,22 +292,7 @@ export function OrderDetailScreen() {
         <Text style={[T.caption, { marginTop: S.xs }]}>{order.shipping_address.phone}</Text>
       </View>
 
-      {/* OTP */}
-      {otpVisible && (
-        <View style={styles.otpCard}>
-          <Text style={[T.label, { color: C.rose, marginBottom: S.sm }]}>Delivery OTP</Text>
-          {order.delivery_otps ? (
-            <>
-              <Text style={styles.otpCode}>{order.delivery_otps.otp_code}</Text>
-              <Text style={[T.caption, { marginTop: S.xs }]}>
-                Valid until {new Date(order.delivery_otps.expires_at).toLocaleTimeString()}
-              </Text>
-            </>
-          ) : (
-            <ActivityIndicator color={C.rose} />
-          )}
-        </View>
-      )}
+
     </ScrollView>
   );
 }

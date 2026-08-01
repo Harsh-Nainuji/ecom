@@ -1,0 +1,31 @@
+# Root gitignore for Ecom Mobile App monorepo
+
+# Dependency directories
+node_modules/
+admin/node_modules/
+mobile/node_modules/
+
+# OS metadata
+.DS_Store
+
+# Next.js admin build caches & files
+admin/.next/
+admin/out/
+admin/build/
+admin/.vercel/
+admin/.env*.local
+
+# Expo mobile build caches & files
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/*.tsbuildinfo
+mobile/.env
+mobile/.env*.local
+
+# System/IDE settings
+.vscode/
+.idea/
+.claude/
+*.log

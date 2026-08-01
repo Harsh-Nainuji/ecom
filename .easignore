@@ -1,0 +1,8 @@
+# Ignore everything except the mobile app during EAS packaging
+admin/
+supabase/
+welcome-to-docker/
+.git/
+.vscode/
+*.md
+TESTING_MANUAL.md
