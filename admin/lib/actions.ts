@@ -95,7 +95,21 @@ export async function listProducts() {
 export async function deleteProduct(id: string) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    const isFkeyViolation = error.code === '23503' || 
+                            error.message.toLowerCase().includes('foreign key') || 
+                            error.message.toLowerCase().includes('violates');
+    if (isFkeyViolation) {
+      // Fallback: Soft-delete by setting status to 'inactive' so historical order logs remain intact
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ status: 'inactive' })
+        .eq('id', id);
+      if (updateError) throw new Error(updateError.message);
+    } else {
+      throw new Error(error.message);
+    }
+  }
   revalidatePath('/products');
 }
 
