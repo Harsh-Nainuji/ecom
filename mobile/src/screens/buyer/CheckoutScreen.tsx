@@ -161,7 +161,7 @@ export function CheckoutScreen() {
       if (description) {
         Alert.alert('Payment cancelled', description);
       } else {
-        Alert.alert('Checkout failed', (error as Error).message ?? 'Something went wrong.');
+        Alert.alert('Checkout failed', (error as Error)?.message ?? 'Something went wrong.');
       }
     } finally {
       setPlacing(false);

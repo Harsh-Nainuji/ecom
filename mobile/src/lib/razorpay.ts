@@ -51,6 +51,13 @@ export function openRazorpayCheckout(options: OpenRazorpayOptions): Promise<Razo
         } else {
           return reject({ description: 'Payment cancelled by user' });
         }
+      } else {
+        // Simulate successful checkout in dev mock mode for native platforms
+        return resolve({
+          razorpay_order_id: options.order_id,
+          razorpay_payment_id: `pay_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          razorpay_signature: `sig_test_${Date.now()}`,
+        });
       }
     }
 
