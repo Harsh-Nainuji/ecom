@@ -95,8 +95,13 @@ export async function GET(request: Request) {
         if (productObj) {
           productObj = {
             ...productObj,
+            name: productObj.name || productObj.title || 'Unknown Product',
             price: Number(productObj.price ?? 0),
-            product_images: Array.isArray(productObj.product_images) ? productObj.product_images : [],
+            product_images: Array.isArray(productObj.product_images)
+              ? productObj.product_images
+              : productObj.product_images
+                ? [productObj.product_images]
+                : [],
           };
           if (variantObj) {
             variantObj.product = productObj;

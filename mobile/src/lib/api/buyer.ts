@@ -14,6 +14,16 @@ import type {
 
 const FEATURED_LIMIT = 8;
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function normalizeProduct(p: any): Product {
   if (!p) return p;
   let images = p.product_images;
@@ -141,7 +151,7 @@ export async function fetchProductById(id: string) {
 
   if (!product.product_images || product.product_images.length === 0) {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/products?id=${id}`);
+      const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/products?id=${id}`);
       if (res.ok) {
         const json = await res.json();
         if (json.product?.product_images && json.product.product_images.length > 0) {
@@ -149,21 +159,25 @@ export async function fetchProductById(id: string) {
         }
       }
     } catch {
-      // Fall through
+      // Network timeout or offline — fall through to direct Supabase lookup
     }
     if (!product.product_images || product.product_images.length === 0) {
-      const { data: imgs } = await supabase
-        .from('product_images')
-        .select('*')
-        .eq('product_id', id);
-      if (imgs && imgs.length > 0) {
-        product.product_images = imgs;
+      try {
+        const { data: imgs } = await supabase
+          .from('product_images')
+          .select('*')
+          .eq('product_id', id);
+        if (imgs && imgs.length > 0) {
+          product.product_images = imgs;
+        }
+      } catch {
+        // Non-fatal — product will render without images
       }
     }
   }
   if (!product.product_variants || product.product_variants.length === 0) {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/variants?productId=${id}`);
+      const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/variants?productId=${id}`);
       if (res.ok) {
         const json = await res.json();
         if (json.variants && json.variants.length > 0) {
@@ -171,7 +185,7 @@ export async function fetchProductById(id: string) {
         }
       }
     } catch {
-      // Fall through
+      // Network timeout or offline — fall through to default variant below
     }
   }
   if (!product.product_variants || product.product_variants.length === 0) {
@@ -239,7 +253,7 @@ export async function fetchWishlist(buyerId: string) {
 
 export async function fetchCart(buyerId: string) {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/cart/items?buyerId=${buyerId}`);
+    const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/cart/items?buyerId=${buyerId}`);
     if (res.ok) {
       const json = await res.json();
       if (json.items && Array.isArray(json.items)) {
@@ -247,7 +261,7 @@ export async function fetchCart(buyerId: string) {
       }
     }
   } catch {
-    // Backend API offline, fallback to Supabase client
+    // Backend API offline or timed out, fallback to Supabase client
   }
 
   const { data, error } = await supabase
@@ -471,6 +485,12 @@ export async function fetchOrderDetail(buyerId: string, id: string) {
 
 export async function createRazorpayOrder(addressId: string, buyerId?: string) {
   const user = buyerId ?? (await supabase.auth.getUser()).data.user?.id;
+  if (!addressId || addressId === 'null' || addressId === 'undefined') {
+    throw new Error('Please select a delivery address before checking out.');
+  }
+  if (!user || user === 'null' || user === 'undefined') {
+    throw new Error('You must be signed in to place an order.');
+  }
   const res = await fetch(`${getApiBaseUrl()}/api/orders/razorpay`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -493,6 +513,15 @@ export async function createOrder(payload: {
   buyer_id?: string;
 }) {
   const user = payload.buyer_id ?? (await supabase.auth.getUser()).data.user?.id;
+  if (!payload.address_id || payload.address_id === 'null' || payload.address_id === 'undefined') {
+    throw new Error('Please select a delivery address before checking out.');
+  }
+  if (!user || user === 'null' || user === 'undefined') {
+    throw new Error('You must be signed in to place an order.');
+  }
+  if (!payload.razorpay_order_id || !payload.razorpay_payment_id || !payload.razorpay_signature) {
+    throw new Error('Payment confirmation data is missing. Please retry the payment.');
+  }
   const res = await fetch(`${getApiBaseUrl()}/api/orders/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

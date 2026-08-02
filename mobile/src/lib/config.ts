@@ -19,6 +19,7 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // 3. Fallback for local web / simulator
-  return 'http://localhost:3000';
+  // 3. Hard fallback — standalone/physical device builds have no debuggerHost,
+  // so they always land here. Must point to the deployed backend, never localhost.
+  return 'https://ecom-tau-bice.vercel.app';
 }
