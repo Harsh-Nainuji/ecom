@@ -103,12 +103,23 @@ export async function POST(request: Request) {
     // Fetch active commission rate from settings
     const { data: commSetting } = await supabaseAdmin
       .from('commission_settings')
-      .select('commission_percent')
+      .select('commission_percent, commission_mode')
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     const flatPercent = commSetting ? Number(commSetting.commission_percent) : 5.00;
+    const isTiered = commSetting?.commission_mode === 'tiered';
+
+    // If tiered, fetch commission slabs
+    let slabs: any[] = [];
+    if (isTiered) {
+      const { data: slabData } = await supabaseAdmin
+        .from('commission_slabs')
+        .select('*')
+        .order('min_price', { ascending: true });
+      slabs = slabData || [];
+    }
 
     // 4. Execute atomic order creation for each seller group
     const createdOrderIds: string[] = [];
@@ -120,15 +131,15 @@ export async function POST(request: Request) {
 
       // Calculate commission for the items in the order based on the active rule
       let calculatedCommission = 0;
-      if (flatPercent === 0) {
+      if (isTiered) {
         // Tiered Slab Rules active
         for (const item of items) {
-          let itemCommRate = 5;
-          if (item.unit_price < 1000) {
-            itemCommRate = 15;
-          } else if (item.unit_price >= 1000 && item.unit_price <= 10000) {
-            itemCommRate = 10;
-          }
+          const matchingSlab = slabs.find(
+            (s) =>
+              item.unit_price >= Number(s.min_price) &&
+              (s.max_price === null || item.unit_price < Number(s.max_price))
+          );
+          const itemCommRate = matchingSlab ? Number(matchingSlab.percent) : 5.00;
           calculatedCommission += item.total_price * (itemCommRate / 100);
         }
       } else {

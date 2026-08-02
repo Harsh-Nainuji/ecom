@@ -146,6 +146,21 @@ export async function toggleUserBlock(id: string, blocked: boolean) {
   revalidatePath('/sellers');
 }
 
+export async function getCommissionSettings() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('commission_settings')
+    .select('commission_percent, commission_mode')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return {
+    commission_percent: data ? Number(data.commission_percent) : 5.00,
+    commission_mode: data?.commission_mode ? (data.commission_mode as 'flat' | 'tiered') : 'flat',
+  };
+}
+
 export async function getCommissionPercent() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -236,12 +251,13 @@ export async function listDeliveries() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('orders')
-    .select('id, placed_at, order_status, delivery_status, delivery_partner:profiles!orders_delivery_partner_id_fkey(full_name), shipping_address')
+    .select('id, placed_at, order_status, delivery_status, delivery_partner:profiles!orders_delivery_partner_id_fkey(id, full_name), shipping_address')
     .not('delivery_status', 'is', null)
     .order('placed_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row: any) => ({
     id: row.id,
+    deliveryPartnerId: row.delivery_partner?.id ?? null,
     deliveryPartnerName: row.delivery_partner?.full_name ?? 'Not Assigned',
     address: row.shipping_address,
     orderStatus: row.order_status,
@@ -472,4 +488,77 @@ export async function getDatabaseUsage() {
     usedPercent: totalBytes > 0 ? Math.min(100, Math.round((usedBytes / totalBytes) * 1000) / 10) : 0,
     remainingBytes: Math.max(0, totalBytes - usedBytes),
   };
+}
+
+export async function listCommissionSlabs() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('commission_slabs')
+    .select('*')
+    .order('min_price', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function createCommissionSlab(minPrice: number, maxPrice: number | null, percent: number) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('commission_slabs')
+    .insert({
+      min_price: minPrice,
+      max_price: maxPrice,
+      percent: percent,
+    });
+  if (error) throw new Error(error.message);
+  revalidatePath('/revenue');
+}
+
+export async function deleteCommissionSlab(id: string) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('commission_slabs')
+    .delete()
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/revenue');
+}
+
+export async function updateCommissionMode(mode: 'flat' | 'tiered') {
+  const supabase = getSupabaseAdmin();
+  
+  // Get existing setting to update or create
+  const { data: existing } = await supabase
+    .from('commission_settings')
+    .select('id')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('commission_settings')
+      .update({ commission_mode: mode })
+      .eq('id', existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('commission_settings')
+      .insert({ commission_mode: mode });
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath('/revenue');
+}
+
+export async function assignDeliveryPartner(orderId: string, partnerId: string | null) {
+  const supabase = getSupabaseAdmin();
+  const deliveryStatus = partnerId ? 'assigned' : 'unassigned';
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      delivery_partner_id: partnerId || null,
+      delivery_status: deliveryStatus,
+    })
+    .eq('id', orderId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
 }

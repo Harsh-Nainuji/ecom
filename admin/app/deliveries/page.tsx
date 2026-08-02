@@ -1,6 +1,7 @@
 import { Truck, MapPin } from 'lucide-react';
 import { listDeliveries, listDeliveryPartners } from '../../lib/actions';
 import { DeliveryPartnersManager } from './DeliveryPartnersManager';
+import { DeliveryAssignmentSelect } from './DeliveryAssignmentSelect';
 
 export const revalidate = 30;
 
@@ -10,6 +11,7 @@ export const metadata = {
 
 const deliveryStatusBadge: Record<string, string> = {
   pending: 'bg-slate-50 text-slate-600 border-slate-200',
+  unassigned: 'bg-slate-50 text-slate-600 border-slate-200',
   assigned: 'bg-indigo-50 text-indigo-600 border-indigo-100',
   out_for_delivery: 'bg-purple-50 text-purple-600 border-purple-100',
   failed: 'bg-rose-50 text-rose-600 border-rose-100',
@@ -61,8 +63,12 @@ export default async function DeliveriesPage() {
                       <td className="py-4 pl-2 font-mono text-[10px] text-slate-400">
                         #{delivery.id.slice(0, 8).toUpperCase()}
                       </td>
-                      <td className="py-4 font-bold text-[#1A1A2D]">
-                        {delivery.deliveryPartnerName}
+                      <td className="py-4">
+                        <DeliveryAssignmentSelect
+                          orderId={delivery.id}
+                          currentPartnerId={delivery.deliveryPartnerId}
+                          partners={partners}
+                        />
                       </td>
                       <td className="py-4 text-slate-500 font-medium max-w-xs truncate">
                         <div className="flex items-center gap-1.5">
