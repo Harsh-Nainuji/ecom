@@ -26,7 +26,7 @@ export function CartScreen() {
   }
 
   const subtotal = items.reduce(
-    (acc, item) => acc + (item.product_variant?.product.price ?? 0) * item.quantity, 0,
+    (acc, item) => acc + (item.product_variant?.product?.price ?? 0) * item.quantity, 0,
   );
   const isEmpty = !loading && items.length === 0;
 
@@ -69,14 +69,14 @@ export function CartScreen() {
               ) : (
                 <View style={[styles.imagePlaceholder, { backgroundColor: bgColor }]}>
                   <Text style={[styles.imageText, { color: C.rose }]}>
-                    {item.product_variant?.product.name[0]?.toUpperCase()}
+                    {item.product_variant?.product?.name?.[0]?.toUpperCase() ?? ''}
                   </Text>
                 </View>
               )}
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.name} numberOfLines={2}>{item.product_variant?.product.name}</Text>
+                <Text style={styles.name} numberOfLines={2}>{item.product_variant?.product?.name ?? 'Unknown Product'}</Text>
                 {variantLabel ? <Text style={styles.variant}>{variantLabel}</Text> : null}
-                <Text style={styles.price}>₹{(item.product_variant?.product.price ?? 0).toFixed(0)}</Text>
+                <Text style={styles.price}>₹{(item.product_variant?.product?.price ?? 0).toFixed(0)}</Text>
                 <View style={styles.row}>
                   <View style={styles.qtyControls}>
                     <TouchableOpacity

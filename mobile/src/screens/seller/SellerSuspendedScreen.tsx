@@ -6,6 +6,7 @@ import {
   View,
 } from 'react-native';
 import { AlertOctagon, Mail, LogOut } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { C, S, R, BTN, T, CARD } from '../../lib/theme';
 
@@ -15,9 +16,10 @@ interface SellerSuspendedScreenProps {
 
 export function SellerSuspendedScreen({ reason }: SellerSuspendedScreenProps) {
   const { signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Access Suspended</Text>

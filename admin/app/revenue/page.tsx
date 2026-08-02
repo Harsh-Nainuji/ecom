@@ -130,13 +130,20 @@ export default function RevenuePage() {
             </div>
             
             <div className="my-6">
-              <p className="text-sm text-slate-500 mb-2">
-                This percentage will be charged on all sales. 
-              </p>
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold text-slate-900">{commission}%</span>
-                <span className="text-sm font-semibold text-slate-400">current rate</span>
+                <span className="text-5xl font-bold text-slate-900">
+                  {commission === 0 ? 'Slab-Based' : `${commission}%`}
+                </span>
+                <span className="text-sm font-semibold text-slate-400">active rule</span>
               </div>
+              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                {commission === 0 
+                  ? 'Tiered Commission Slabs: 15% cut on items below ₹1,000; 10% on items above ₹1,000 to ₹10,000; 5% on items above ₹10,000.'
+                  : 'Universal Flat Rate: This percentage will be charged flat on all sales.'}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1 italic">
+                * To activate Tiered Slabs, update the commission rate below to exactly 0.00%
+              </p>
             </div>
 
             <form onSubmit={handleUpdateCommission} className="flex gap-2">

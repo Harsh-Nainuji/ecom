@@ -176,6 +176,13 @@ export function SellerProductsScreen() {
         status: editStatus,
       });
 
+      // Upload local images if there are any
+      const localImages = (editingProduct.product_images || []).filter((img: any) => (img as any).base64);
+      for (const img of localImages) {
+        const localImg = img as any;
+        await uploadProductImage(productId, localImg.base64, localImg.fileName, localImg.mimeType);
+      }
+
       closeEditModal();
       // Reload full list so the saved/new product appears immediately
       await load();
@@ -248,11 +255,26 @@ export function SellerProductsScreen() {
       return;
     }
 
+    const fileName = asset.fileName || `img_${Date.now()}.jpg`;
+    const mimeType = asset.mimeType || 'image/jpeg';
+
+    if (isNewProduct) {
+      const localImg = {
+        id: `temp_${Date.now()}`,
+        image_url: asset.uri,
+        sort_order: currentImages.length,
+        base64: asset.base64,
+        fileName,
+        mimeType,
+      } as any;
+
+      const updatedImages = [...currentImages, localImg];
+      setEditingProduct({ ...editingProduct, product_images: updatedImages });
+      return;
+    }
+
     setSaving(true);
     try {
-      const fileName = asset.fileName || `img_${Date.now()}.jpg`;
-      const mimeType = asset.mimeType || 'image/jpeg';
-      
       const newImg = await uploadProductImage(
         editingProduct.id,
         asset.base64,
@@ -285,6 +307,12 @@ export function SellerProductsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            if (isNewProduct) {
+              const updatedImages = (editingProduct.product_images || []).filter((img) => img.id !== imageId);
+              setEditingProduct({ ...editingProduct, product_images: updatedImages });
+              return;
+            }
+
             setSaving(true);
             try {
               const { error: dbError } = await supabase
@@ -429,39 +457,32 @@ export function SellerProductsScreen() {
                 />
               </View>
 
-              {!isNewProduct && (
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
-                    {(editingProduct?.product_images || []).map((img) => {
-                      const fullUrl = getProductImageUrl(img.image_url);
-                      return (
-                        <View key={img.id} style={styles.imageContainer}>
-                          <Image source={{ uri: fullUrl || undefined }} style={styles.previewImage} />
-                          <TouchableOpacity
-                            style={styles.deleteImageBtn}
-                            onPress={() => handleDeleteImage(img.id, img.image_url)}
-                          >
-                            <Text style={styles.deleteImageBtnText}>×</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                    {(editingProduct?.product_images?.length || 0) < 5 && (
-                      <TouchableOpacity style={styles.addImageBtn} onPress={handleAddImage}>
-                        <Text style={styles.addImageBtnText}>+</Text>
-                        <Text style={styles.addImageSubtext}>Add Image</Text>
-                      </TouchableOpacity>
-                    )}
-                  </ScrollView>
-                  <Text style={[T.caption, { marginTop: 4 }]}>Maximum 5 images. Under 5MB per image.</Text>
-                </View>
-              )}
-              {isNewProduct && (
-                <View style={[styles.inputGroup, { backgroundColor: '#fffbeb', borderRadius: R.md, padding: S.sm, borderWidth: 1, borderColor: '#fde68a' }]}>
-                  <Text style={[T.caption, { color: '#92400e' }]}>Save the product first, then open it to add images.</Text>
-                </View>
-              )}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
+                  {(editingProduct?.product_images || []).map((img) => {
+                    const fullUrl = getProductImageUrl(img.image_url);
+                    return (
+                      <View key={img.id} style={styles.imageContainer}>
+                        <Image source={{ uri: fullUrl || undefined }} style={styles.previewImage} />
+                        <TouchableOpacity
+                          style={styles.deleteImageBtn}
+                          onPress={() => handleDeleteImage(img.id, img.image_url)}
+                        >
+                          <Text style={styles.deleteImageBtnText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                  {(editingProduct?.product_images?.length || 0) < 5 && (
+                    <TouchableOpacity style={styles.addImageBtn} onPress={handleAddImage}>
+                      <Text style={styles.addImageBtnText}>+</Text>
+                      <Text style={styles.addImageSubtext}>Add Image</Text>
+                    </TouchableOpacity>
+                  )}
+                </ScrollView>
+                <Text style={[T.caption, { marginTop: 4 }]}>Maximum 5 images. Under 5MB per image.</Text>
+              </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Category</Text>

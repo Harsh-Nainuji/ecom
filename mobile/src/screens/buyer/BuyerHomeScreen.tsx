@@ -134,7 +134,7 @@ export function BuyerHomeScreen() {
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(e) => {
-                  const idx = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                   setBannerIndex(idx);
                 }}
               >
@@ -386,8 +386,8 @@ const styles = StyleSheet.create({
   promoItem: { flexDirection: 'row', alignItems: 'center', gap: S.xs, flex: 1 },
   promoText: { fontSize: 11, color: C.rose, fontWeight: '600' },
   promoDivider: { width: 1, height: 14, backgroundColor: C.border },
-  carouselContainer: { marginHorizontal: S.md, marginTop: S.md, marginBottom: S.sm, borderRadius: R.lg, overflow: 'hidden' },
-  carouselSlide: { width: SCREEN_WIDTH - S.md * 2, height: 180, borderRadius: R.lg, overflow: 'hidden' },
+  carouselContainer: { marginHorizontal: -S.md, marginTop: S.md, marginBottom: S.sm, borderRadius: 0, overflow: 'hidden' },
+  carouselSlide: { width: SCREEN_WIDTH, height: 180, borderRadius: 0, overflow: 'hidden' },
   carouselImage: { width: '100%', height: '100%' },
   carouselOverlay: {
     position: 'absolute', left: 0, right: 0, bottom: 0,

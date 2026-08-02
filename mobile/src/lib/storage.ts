@@ -4,7 +4,14 @@ const PRODUCT_IMAGES_BUCKET = 'product-images';
 
 export function getProductImageUrl(imageUrl?: string | null) {
   if (!imageUrl) return null;
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (
+    imageUrl.startsWith('http://') ||
+    imageUrl.startsWith('https://') ||
+    imageUrl.startsWith('file://') ||
+    imageUrl.startsWith('content://')
+  ) {
+    return imageUrl;
+  }
 
   const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(imageUrl);
   return data.publicUrl;
@@ -49,10 +56,34 @@ export async function uploadProductImage(productId: string, base64Image: string,
 }
 
 function decodeBase64(base64: string) {
-  const byteCharacters = atob(base64);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i += 1) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i += 1) {
+    lookup[chars.charCodeAt(i)] = i;
   }
-  return new Uint8Array(byteNumbers);
+  
+  const cleanBase64 = base64.replace(/=/g, '');
+  const len = cleanBase64.length;
+  const bufferLength = Math.floor(len * 0.75);
+  const bytes = new Uint8Array(bufferLength);
+  
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const encoded1 = lookup[cleanBase64.charCodeAt(i) || 0];
+    const encoded2 = lookup[cleanBase64.charCodeAt(i + 1) || 0];
+    const encoded3 = lookup[cleanBase64.charCodeAt(i + 2) || 0];
+    const encoded4 = lookup[cleanBase64.charCodeAt(i + 3) || 0];
+    
+    bytes[p] = (encoded1 << 2) | (encoded2 >> 4);
+    p += 1;
+    if (p < bufferLength) {
+      bytes[p] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+      p += 1;
+    }
+    if (p < bufferLength) {
+      bytes[p] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+      p += 1;
+    }
+  }
+  return bytes;
 }

@@ -164,36 +164,68 @@ export async function fetchCart(buyerId: string) {
 }
 
 export async function updateCartItem(buyerId: string, variantId: string, quantity: number, productId?: string) {
-  if (!variantId || variantId === productId) {
+  let resolvedVariantId = variantId;
+  try {
+    const { data: variants } = await supabase
+      .from('product_variants')
+      .select('id')
+      .eq('product_id', variantId);
+
+    if (variants && variants.length > 0) {
+      resolvedVariantId = variants[0].id;
+    } else {
+      const { data: isVar } = await supabase
+        .from('product_variants')
+        .select('id')
+        .eq('id', variantId)
+        .single();
+
+      if (!isVar) {
+        const targetProductId = productId || variantId;
+        const { data: newVar } = await supabase
+          .from('product_variants')
+          .insert({ product_id: targetProductId, stock: 10, size: null, color: null })
+          .select('id')
+          .single();
+        if (newVar) {
+          resolvedVariantId = newVar.id;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed resolving variant: ', e);
+  }
+
+  try {
     const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buyerId, variantId, productId, quantity }),
+      body: JSON.stringify({ buyerId, variantId: resolvedVariantId, productId, quantity }),
     });
-    if (res.ok) return;
-    const errJson = await res.json().catch(() => ({}));
-    throw new Error(errJson.error || 'Failed to update cart');
-  }
-
-  const payload = { buyer_id: buyerId, variant_id: variantId, quantity };
-  const { error } = await supabase
-    .from('cart_items')
-    .upsert(payload, { onConflict: 'buyer_id,variant_id' });
-
-  if (error) {
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyerId, variantId, productId, quantity }),
-      });
-      if (res.ok) {
-        return;
-      }
-    } catch {
-      // Ignore
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Failed to update cart');
     }
-    throw new Error(error.message);
+  } catch {
+    const payload = { buyer_id: buyerId, variant_id: resolvedVariantId, quantity };
+    const { error } = await supabase
+      .from('cart_items')
+      .upsert(payload, { onConflict: 'buyer_id,variant_id' });
+    if (error) {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buyerId, variantId: resolvedVariantId, productId, quantity }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Failed to update cart');
+        }
+      } catch {
+        throw new Error(error.message);
+      }
+    }
   }
 }
 

@@ -9,6 +9,7 @@ import type { OrderDetail } from '../../lib/types';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { useAuth } from '../../context/AuthContext';
 import { C, S, R, BTN, INPUT, T, CARD } from '../../lib/theme';
+import { supabase } from '../../lib/supabase';
 
 const ORDER_FLOW: { key: OrderDetail['order_status']; label: string }[] = [
   { key: 'pending',          label: 'Order Placed' },
@@ -60,6 +61,31 @@ export function OrderDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Real-time listener for order status changes
+  useEffect(() => {
+    if (!session?.user?.id || !order?.id) return;
+
+    const channel = supabase
+      .channel(`order-detail-channel-${order.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${order.id}`,
+        },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [order?.id, session?.user?.id, load]);
 
   if (!session?.user) {
     return <ScreenPlaceholder title="Order details" subtitle="Sign in to view this order." />;

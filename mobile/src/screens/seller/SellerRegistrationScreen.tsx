@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { ArrowLeft, ArrowRight, Check, ShieldCheck, Landmark, FileText, Briefcase } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { C, S, R, BTN, INPUT, T, CARD } from '../../lib/theme';
@@ -133,8 +134,14 @@ export function SellerRegistrationScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Seller Registration</Text>
         <TouchableOpacity style={styles.logoutBtn} onPress={() => signOut()}>

@@ -80,6 +80,16 @@ export async function POST(request: Request) {
       });
     }
 
+    // Fetch active commission rate from settings
+    const { data: commSetting } = await supabaseAdmin
+      .from('commission_settings')
+      .select('commission_percent')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const flatPercent = commSetting ? Number(commSetting.commission_percent) : 5.00;
+
     // 4. Execute atomic order creation for each seller group
     const createdOrderIds: string[] = [];
 
@@ -88,12 +98,33 @@ export async function POST(request: Request) {
       const deliveryFee = subtotal >= 499 ? 0 : 49;
       const totalAmount = subtotal + deliveryFee;
 
+      // Calculate commission for the items in the order based on the active rule
+      let calculatedCommission = 0;
+      if (flatPercent === 0) {
+        // Tiered Slab Rules active:
+        // - Unit price < ₹1,000: 15% cut
+        // - Unit price ₹1,000 to ₹10,000: 10% cut
+        // - Unit price > ₹10,000: 5% cut
+        for (const item of items) {
+          let itemCommRate = 5;
+          if (item.unit_price < 1000) {
+            itemCommRate = 15;
+          } else if (item.unit_price >= 1000 && item.unit_price <= 10000) {
+            itemCommRate = 10;
+          }
+          calculatedCommission += item.total_price * (itemCommRate / 100);
+        }
+      } else {
+        // Universal flat percentage cut
+        calculatedCommission = subtotal * (flatPercent / 100);
+      }
+
       const { data: orderId, error: rpcError } = await supabaseAdmin.rpc('create_order_with_items', {
         p_buyer_id: buyerId,
         p_seller_id: sellerId,
         p_shipping_address: address,
         p_subtotal: subtotal,
-        p_commission: 0,
+        p_commission: calculatedCommission,
         p_total: totalAmount,
         p_order_items: items,
         p_razorpay_order_id: razorpay_order_id,

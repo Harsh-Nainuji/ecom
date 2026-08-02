@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Clock, RefreshCw, LogOut, CheckCircle, HelpCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { C, S, R, BTN, T, CARD } from '../../lib/theme';
@@ -16,6 +17,7 @@ import { C, S, R, BTN, T, CARD } from '../../lib/theme';
 export function SellerPendingScreen() {
   const { session, sellerProfile, refreshProfile, signOut } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Real-time listener for status change
   useEffect(() => {
@@ -61,7 +63,7 @@ export function SellerPendingScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Account Review</Text>
