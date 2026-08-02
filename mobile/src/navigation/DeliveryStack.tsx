@@ -1,4 +1,4 @@
-import { Alert, TouchableOpacity } from 'react-native';
+import { Alert, Platform, TouchableOpacity } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
 import { DeliveryAssignmentsScreen } from '../screens/delivery/DeliveryAssignmentsScreen';
@@ -15,13 +15,23 @@ const Stack = createNativeStackNavigator<DeliveryStackParamList>();
 
 function HeaderLogout() {
   const { signOut } = useAuth();
+  const handleSignOut = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to sign out?')) {
+        signOut();
+      }
+    } else {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: signOut },
+      ]);
+    }
+  };
+
   return (
     <TouchableOpacity
       style={{ marginRight: 16, padding: 6, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: C.error }}
-      onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
-      ])}
+      onPress={handleSignOut}
       activeOpacity={0.8}
     >
       <LogOut size={18} color={C.error} strokeWidth={2} />

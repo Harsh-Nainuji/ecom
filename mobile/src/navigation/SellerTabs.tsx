@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Alert, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, Package, ClipboardList, LogOut, ShoppingBag } from 'lucide-react-native';
 import { SellerDashboardScreen } from '../screens/seller/SellerDashboardScreen';
@@ -42,24 +42,45 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 
 function HeaderActions() {
   const { signOut, setActiveRole } = useAuth();
+
+  const handleSwitchToBuyer = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Open the buyer app view to shop?')) {
+        setActiveRole('buyer');
+      }
+    } else {
+      Alert.alert('Switch to Buyer', 'Open the buyer app view to shop?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Shop Now', onPress: () => setActiveRole('buyer') },
+      ]);
+    }
+  };
+
+  const handleSignOut = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to sign out?')) {
+        signOut();
+      }
+    } else {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: signOut },
+      ]);
+    }
+  };
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 16 }}>
       <TouchableOpacity
         style={{ padding: 6, borderRadius: 8, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#86efac' }}
-        onPress={() => Alert.alert('Switch to Buyer', 'Open the buyer app view to shop?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Shop Now', onPress: () => setActiveRole('buyer') },
-        ])}
+        onPress={handleSwitchToBuyer}
         activeOpacity={0.8}
       >
         <ShoppingBag size={18} color={C.success} strokeWidth={2} />
       </TouchableOpacity>
       <TouchableOpacity
         style={{ padding: 6, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: C.error }}
-        onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign Out', style: 'destructive', onPress: signOut },
-        ])}
+        onPress={handleSignOut}
         activeOpacity={0.8}
       >
         <LogOut size={18} color={C.error} strokeWidth={2} />

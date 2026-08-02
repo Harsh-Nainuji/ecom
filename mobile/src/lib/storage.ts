@@ -4,33 +4,67 @@ const PRODUCT_IMAGES_BUCKET = 'product-images';
 
 export function getProductImageUrl(imageUrl?: string | null) {
   if (!imageUrl) return null;
+  const cleanUrl = imageUrl.trim();
+  if (!cleanUrl) return null;
+
   if (
-    imageUrl.startsWith('http://') ||
-    imageUrl.startsWith('https://') ||
-    imageUrl.startsWith('file://') ||
-    imageUrl.startsWith('content://')
+    cleanUrl.startsWith('http://') ||
+    cleanUrl.startsWith('https://') ||
+    cleanUrl.startsWith('file://') ||
+    cleanUrl.startsWith('content://') ||
+    cleanUrl.startsWith('data:')
   ) {
-    return imageUrl;
+    return cleanUrl;
   }
 
-  const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(imageUrl);
+  const normalizedPath = cleanUrl.replace(/^\/+/, '');
+  const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(normalizedPath);
   return data.publicUrl;
 }
 
-export function pickPrimaryImage(product?: { product_images?: { image_url: string; sort_order?: number }[] | null } | null) {
-  if (!product?.product_images?.length) return null;
-  const sorted = [...product.product_images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  return getProductImageUrl(sorted[0].image_url);
+export function pickPrimaryImage(product?: any) {
+  if (!product) return null;
+
+  let images: any[] = [];
+  if (Array.isArray(product.product_images)) {
+    images = product.product_images;
+  } else if (product.product_images && typeof product.product_images === 'object') {
+    images = [product.product_images];
+  } else if (Array.isArray(product.images)) {
+    images = product.images;
+  } else if (product.images && typeof product.images === 'object') {
+    images = [product.images];
+  } else if (product.image_url) {
+    images = [{ image_url: product.image_url }];
+  } else if (product.product_image) {
+    images = Array.isArray(product.product_image) ? product.product_image : [product.product_image];
+  }
+
+  if (images.length === 0) return null;
+
+  const sorted = [...images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const first = sorted[0];
+  if (!first) return null;
+
+  const rawUrl =
+    typeof first === 'string'
+      ? first
+      : first.image_url || first.url || first.path || first.uri || null;
+
+  if (!rawUrl) return null;
+
+  return getProductImageUrl(rawUrl);
 }
 
 export async function uploadProductImage(productId: string, base64Image: string, fileName: string, mimeType: string) {
-  const path = `${productId}/${Date.now()}_${fileName}`;
+  const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${productId}/${Date.now()}_${sanitizedFileName}`;
   const arrayBuffer = decodeBase64(base64Image);
   
   try {
     const { error: uploadError } = await supabase.storage
       .from(PRODUCT_IMAGES_BUCKET)
-      .upload(path, arrayBuffer, { contentType: mimeType, upsert: false });
+      .upload(path, arrayBuffer, { contentType: mimeType, upsert: true });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
@@ -55,14 +89,33 @@ export async function uploadProductImage(productId: string, base64Image: string,
   }
 }
 
-function decodeBase64(base64: string) {
+function decodeBase64(base64: string): Uint8Array {
+  // 1. Strip data URI prefix if present (e.g. "data:image/jpeg;base64,")
+  const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+  
+  // 2. Use browser/environment atob if available
+  if (typeof atob === 'function') {
+    try {
+      const binaryString = atob(base64Data.trim());
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    } catch {
+      // Fallback manual decoding
+    }
+  }
+
+  // 3. Fallback manual decoder
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const lookup = new Uint8Array(256);
   for (let i = 0; i < chars.length; i += 1) {
     lookup[chars.charCodeAt(i)] = i;
   }
   
-  const cleanBase64 = base64.replace(/=/g, '');
+  const cleanBase64 = base64Data.replace(/[^A-Za-z0-9+/]/g, '');
   const len = cleanBase64.length;
   const bufferLength = Math.floor(len * 0.75);
   const bytes = new Uint8Array(bufferLength);

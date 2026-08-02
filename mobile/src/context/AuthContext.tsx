@@ -1,4 +1,4 @@
-import { 
+import {
   PropsWithChildren,
   createContext,
   useCallback,
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         existing = await fetchProfile(session.user.id);
       }
       setProfile(existing);
-      
+
       // Register push token for notifications
       registerForPushNotificationsAsync(session.user.id);
 
@@ -188,9 +188,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert('Sign out failed', error.message);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('SignOut warning:', e);
+    } finally {
+      setSession(null);
+      setProfile(null);
+      setSellerProfile(null);
+      setActiveRole(null);
     }
   }, []);
 

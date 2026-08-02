@@ -34,12 +34,7 @@ export function WishlistProvider({ children }: PropsWithChildren) {
     setLoading(true);
     try {
       const data = await fetchWishlist(session.user.id);
-      setWishlist(
-        (data ?? []).map((item) => ({
-          product_id: item.product_id,
-          product: Array.isArray(item.product) ? item.product[0] : (item.product as WishlistEntry['product']),
-        })),
-      );
+      setWishlist((data ?? []) as WishlistEntry[]);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('Failed to load wishlist', error);

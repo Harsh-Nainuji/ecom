@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -96,7 +97,7 @@ export function SellerProductsScreen() {
       price: 0,
       description: '',
       category_id: categories[0]?.id ?? '',
-      status: 'draft',
+      status: 'active',
       commission_rate: 0,
       product_images: [],
       product_variants: [],
@@ -107,7 +108,7 @@ export function SellerProductsScreen() {
     setEditPrice('');
     setEditDesc('');
     setEditCategoryId(categories[0]?.id ?? '');
-    setEditStatus('draft');
+    setEditStatus('active');
   };
 
   const handleAdjustStock = async (variantId: string | undefined, delta: number) => {
@@ -195,26 +196,30 @@ export function SellerProductsScreen() {
 
   const handleDeleteProduct = () => {
     if (!editingProduct) return;
-    Alert.alert(
-      'Delete Product?',
-      `Are you sure you want to delete "${editingProduct.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteSellerProduct(editingProduct.id);
-              closeEditModal();
-              refresh();
-            } catch (err) {
-              Alert.alert('Delete failed', (err as Error).message);
-            }
-          },
-        },
-      ]
-    );
+    const performDelete = async () => {
+      try {
+        await deleteSellerProduct(editingProduct.id);
+        closeEditModal();
+        refresh();
+      } catch (err) {
+        Alert.alert('Delete failed', (err as Error).message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`Are you sure you want to delete "${editingProduct.name}"?`)) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Product?',
+        `Are you sure you want to delete "${editingProduct.name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
   };
 
   const handleAddImage = async () => {
@@ -298,45 +303,49 @@ export function SellerProductsScreen() {
   const handleDeleteImage = async (imageId: string, imageUrl: string) => {
     if (!editingProduct) return;
 
-    Alert.alert(
-      'Delete Image?',
-      'Are you sure you want to remove this product image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            if (isNewProduct) {
-              const updatedImages = (editingProduct.product_images || []).filter((img) => img.id !== imageId);
-              setEditingProduct({ ...editingProduct, product_images: updatedImages });
-              return;
-            }
+    const performDelete = async () => {
+      if (isNewProduct || imageId.startsWith('temp_')) {
+        const updatedImages = (editingProduct.product_images || []).filter((img) => img.id !== imageId);
+        setEditingProduct({ ...editingProduct, product_images: updatedImages });
+        return;
+      }
 
-            setSaving(true);
-            try {
-              const { error: dbError } = await supabase
-                .from('product_images')
-                .delete()
-                .eq('id', imageId);
-              
-              if (dbError) throw dbError;
+      setSaving(true);
+      try {
+        const { error: dbError } = await supabase
+          .from('product_images')
+          .delete()
+          .eq('id', imageId);
+        
+        if (dbError) throw dbError;
 
-              await supabase.storage.from('product-images').remove([imageUrl]);
+        await supabase.storage.from('product-images').remove([imageUrl]);
 
-              const updatedImages = (editingProduct.product_images || []).filter((img) => img.id !== imageId);
-              const updatedProd = { ...editingProduct, product_images: updatedImages };
-              setEditingProduct(updatedProd);
-              setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? updatedProd : p)));
-            } catch (err) {
-              Alert.alert('Delete Image Failed', (err as Error).message);
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ]
-    );
+        const updatedImages = (editingProduct.product_images || []).filter((img) => img.id !== imageId);
+        const updatedProd = { ...editingProduct, product_images: updatedImages };
+        setEditingProduct(updatedProd);
+        setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? updatedProd : p)));
+      } catch (err) {
+        Alert.alert('Delete Image Failed', (err as Error).message);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to remove this product image?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Image?',
+        'Are you sure you want to remove this product image?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
   };
 
   return (

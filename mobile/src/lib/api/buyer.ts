@@ -14,6 +14,72 @@ import type {
 
 const FEATURED_LIMIT = 8;
 
+function normalizeProduct(p: any): Product {
+  if (!p) return p;
+  let images = p.product_images;
+  if (!Array.isArray(images)) {
+    if (images && typeof images === 'object') {
+      images = [images];
+    } else {
+      images = [];
+    }
+  }
+  return {
+    ...p,
+    price: Number(p.price ?? 0),
+    product_images: images,
+  };
+}
+
+async function attachMissingProductImages(products: Product[]) {
+  const missing = products.filter((p) => !p.product_images || p.product_images.length === 0);
+  if (missing.length === 0) return products;
+
+  // 1. Try Next.js API server fallback via Service Role
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/products?limit=50`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.products && json.products.length > 0) {
+        const apiMap = new Map<string, any[]>();
+        for (const p of json.products) {
+          apiMap.set(p.id, p.product_images || []);
+        }
+        for (const p of products) {
+          if (!p.product_images || p.product_images.length === 0) {
+            p.product_images = apiMap.get(p.id) || [];
+          }
+        }
+        return products;
+      }
+    }
+  } catch {
+    // Fall through to direct table lookup
+  }
+
+  // 2. Direct table lookup fallback
+  const productIds = missing.map((p) => p.id);
+  const { data: allImages } = await supabase
+    .from('product_images')
+    .select('*')
+    .in('product_id', productIds);
+
+  if (allImages && allImages.length > 0) {
+    const map = new Map<string, any[]>();
+    for (const img of allImages) {
+      const list = map.get(img.product_id) || [];
+      list.push(img);
+      map.set(img.product_id, list);
+    }
+    for (const p of products) {
+      if (!p.product_images || p.product_images.length === 0) {
+        p.product_images = map.get(p.id) || [];
+      }
+    }
+  }
+  return products;
+}
+
 export async function fetchFeaturedProducts() {
   const { data, error } = await supabase
     .from('products')
@@ -23,7 +89,8 @@ export async function fetchFeaturedProducts() {
     .limit(FEATURED_LIMIT);
 
   if (error) throw new Error(error.message);
-  return data as Product[];
+  const normalized = (data ?? []).map(normalizeProduct) as Product[];
+  return await attachMissingProductImages(normalized);
 }
 
 export async function fetchCategories() {
@@ -58,7 +125,8 @@ export async function searchProducts(query: string, categoryId?: string | null) 
 
   const { data, error } = await request.limit(30);
   if (error) throw new Error(error.message);
-  return data as Product[];
+  const normalized = (data ?? []).map(normalizeProduct) as Product[];
+  return await attachMissingProductImages(normalized);
 }
 
 export async function fetchProductById(id: string) {
@@ -69,7 +137,30 @@ export async function fetchProductById(id: string) {
     .single();
 
   if (error) throw new Error(error.message);
-  const product = data as Product;
+  const product = normalizeProduct(data);
+
+  if (!product.product_images || product.product_images.length === 0) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/products?id=${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.product?.product_images && json.product.product_images.length > 0) {
+          product.product_images = json.product.product_images;
+        }
+      }
+    } catch {
+      // Fall through
+    }
+    if (!product.product_images || product.product_images.length === 0) {
+      const { data: imgs } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', id);
+      if (imgs && imgs.length > 0) {
+        product.product_images = imgs;
+      }
+    }
+  }
   if (!product.product_variants || product.product_variants.length === 0) {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/variants?productId=${id}`);
@@ -125,8 +216,25 @@ export async function fetchWishlist(buyerId: string) {
     .from('wishlists')
     .select('product_id, product:products(*, product_images(*))')
     .eq('buyer_id', buyerId);
+
   if (error) throw new Error(error.message);
-  return data;
+  if (!data) return [];
+
+  const items = data.map((item: any) => {
+    let pObj = item.product;
+    if (Array.isArray(pObj)) {
+      pObj = pObj[0];
+    }
+    return {
+      product_id: item.product_id,
+      product: pObj ? normalizeProduct(pObj) : null,
+    };
+  });
+
+  const productsList = items.map((i) => i.product).filter(Boolean) as Product[];
+  await attachMissingProductImages(productsList);
+
+  return items;
 }
 
 export async function fetchCart(buyerId: string) {

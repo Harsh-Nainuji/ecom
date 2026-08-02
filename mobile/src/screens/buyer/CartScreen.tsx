@@ -13,10 +13,23 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 
 const CARD_COLORS = [C.card0, C.card1, C.card2, C.card3];
 
+import { useToast } from '../../context/ToastContext';
+
 export function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
   const { items, loading, refresh, setQuantity, remove } = useCart();
   const { session } = useAuth();
+  const { showToast } = useToast();
+
+  const handleSetQuantity = async (variantId: string, quantity: number) => {
+    await setQuantity(variantId, quantity);
+    showToast('Cart updated', 'info');
+  };
+
+  const handleRemove = async (variantId: string) => {
+    await remove(variantId);
+    showToast('Item removed from cart', 'info');
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -27,7 +40,19 @@ export function CartScreen() {
   if (!session?.user) {
     return (
       <ScreenContainer>
-        <ScreenPlaceholder title="Cart" subtitle="Sign in to view and manage your cart." />
+        <ScreenPlaceholder
+          title="Sign In Required"
+          subtitle="Sign in or create an account to view and manage your shopping cart."
+          footer={
+            <TouchableOpacity
+              style={[styles.browseBtn, { marginTop: 16 }]}
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.browseBtnText}>Sign In / Sign Up</Text>
+            </TouchableOpacity>
+          }
+        />
       </ScreenContainer>
     );
   }
@@ -87,20 +112,20 @@ export function CartScreen() {
                 <View style={styles.row}>
                   <View style={styles.qtyControls}>
                     <TouchableOpacity
-                      onPress={() => setQuantity(item.variant_id, Math.max(1, item.quantity - 1))}
+                      onPress={() => handleSetQuantity(item.variant_id, Math.max(1, item.quantity - 1))}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Minus size={14} color={C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                     <Text style={styles.qtyValue}>{item.quantity}</Text>
                     <TouchableOpacity
-                      onPress={() => setQuantity(item.variant_id, item.quantity + 1)}
+                      onPress={() => handleSetQuantity(item.variant_id, item.quantity + 1)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Plus size={14} color={C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={() => remove(item.variant_id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity onPress={() => handleRemove(item.variant_id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.remove}>Remove</Text>
                   </TouchableOpacity>
                 </View>

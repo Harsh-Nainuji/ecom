@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +18,7 @@ import { fetchAddresses, fetchCart, createOrder, createRazorpayOrder, upsertAddr
 import type { Address, CartItemWithProduct } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
@@ -25,6 +27,7 @@ export function CheckoutScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
   const { session } = useAuth();
   const { refresh } = useCart();
+  const { showToast } = useToast();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selected, setSelected] = useState<Address | null>(null);
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
@@ -85,6 +88,7 @@ export function CheckoutScreen() {
       setSelected(created);
       setShowAddForm(false);
       setAddressForm({ recipient_name: '', phone: '', line1: '', city: '', state: '', postal_code: '', label: 'Home' });
+      showToast('Shipping address saved!', 'success');
     } catch (err: any) {
       Alert.alert('Save failed', err.message || 'Could not save address.');
     } finally {
@@ -134,13 +138,21 @@ export function CheckoutScreen() {
       });
 
       await refresh();
+      showToast('Order placed successfully!', 'success');
 
       if (confirmation.order_ids && confirmation.order_ids.length > 1) {
-        Alert.alert(
-          'Order placed',
-          `Your cart had items from ${confirmation.order_ids.length} different sellers, so it was split into ${confirmation.order_ids.length} separate orders for shipping. You can view each one from Order History.`,
-          [{ text: 'View First Order', onPress: () => navigation.replace('OrderDetail', { orderId: confirmation.order_ids[0] }) }],
-        );
+        if (Platform.OS === 'web') {
+          if (typeof window !== 'undefined') {
+            window.alert(`Your cart had items from ${confirmation.order_ids.length} different sellers, so it was split into ${confirmation.order_ids.length} separate orders for shipping.`);
+          }
+          navigation.replace('OrderDetail', { orderId: confirmation.order_ids[0] });
+        } else {
+          Alert.alert(
+            'Order placed',
+            `Your cart had items from ${confirmation.order_ids.length} different sellers, so it was split into ${confirmation.order_ids.length} separate orders for shipping. You can view each one from Order History.`,
+            [{ text: 'View First Order', onPress: () => navigation.replace('OrderDetail', { orderId: confirmation.order_ids[0] }) }],
+          );
+        }
       } else {
         navigation.replace('OrderDetail', { orderId: confirmation.order_id });
       }
@@ -157,7 +169,21 @@ export function CheckoutScreen() {
   }
 
   if (!session?.user) {
-    return <ScreenPlaceholder title="Sign in required" subtitle="Please sign in to checkout." />;
+    return (
+      <ScreenPlaceholder
+        title="Sign In Required"
+        subtitle="Please sign in or create an account to proceed to checkout."
+        footer={
+          <TouchableOpacity
+            style={{ marginTop: 16, backgroundColor: C.rose, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Sign In / Sign Up</Text>
+          </TouchableOpacity>
+        }
+      />
+    );
   }
 
   const delivery = subtotal >= 499 ? 0 : 49;

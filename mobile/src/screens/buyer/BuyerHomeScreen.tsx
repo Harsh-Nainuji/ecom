@@ -25,6 +25,7 @@ import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, T } from '../../lib/theme';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { ProductGridSkeleton } from '../../components/ProductSkeleton';
+import { ProductImage } from '../../components/ProductImage';
 
 const CARD_PALETTES = [
   { bg: C.card0, text: C.rose },
