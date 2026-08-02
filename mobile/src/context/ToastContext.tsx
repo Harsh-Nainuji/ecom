@@ -1,9 +1,9 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react-native';
+import { CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react-native';
 import { S } from '../lib/theme';
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastState {
   visible: boolean;
@@ -41,6 +41,9 @@ export function ToastProvider({ children }: PropsWithChildren) {
   } else if (toast.type === 'info') {
     Icon = Info;
     bg = '#3b82f6';
+  } else if (toast.type === 'warning') {
+    Icon = AlertTriangle;
+    bg = '#f59e0b';
   }
 
   return (

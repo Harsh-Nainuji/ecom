@@ -21,8 +21,12 @@ export function CartScreen() {
   const { session } = useAuth();
   const { showToast } = useToast();
 
-  const handleSetQuantity = async (variantId: string, quantity: number) => {
-    await setQuantity(variantId, quantity);
+  const handleSetQuantity = async (variantId: string, currentQty: number, nextQty: number, maxStock: number) => {
+    if (nextQty > currentQty && nextQty > maxStock) {
+      showToast(`Cannot add more. Available stock is ${maxStock}!`, 'warning');
+      return;
+    }
+    await setQuantity(variantId, nextQty);
     showToast('Cart updated', 'info');
   };
 
@@ -62,6 +66,19 @@ export function CartScreen() {
   );
   const isEmpty = !loading && items.length === 0;
 
+  const hasStockIssue = items.some((i) => {
+    const stock = i.product_variant?.stock ?? 10;
+    return stock <= 0 || i.quantity > stock;
+  });
+
+  const handleProceedToCheckout = () => {
+    if (hasStockIssue) {
+      showToast('Please adjust out-of-stock items before proceeding', 'error');
+      return;
+    }
+    navigation.navigate('Checkout');
+  };
+
   return (
     <ScreenContainer>
       <View style={styles.container}>
@@ -90,12 +107,15 @@ export function CartScreen() {
         }
         renderItem={({ item, index }) => {
           const bgColor = CARD_COLORS[index % CARD_COLORS.length];
+          const maxStock = item.product_variant?.stock ?? 10;
+          const isOos = maxStock <= 0;
+          const isOverStock = item.quantity > maxStock;
           const variantLabel = item.product_variant?.size && item.product_variant?.color
             ? `${item.product_variant.size} • ${item.product_variant.color}`
             : item.product_variant?.size ?? item.product_variant?.color ?? '';
           const imageUrl = pickPrimaryImage(item.product_variant?.product);
           return (
-            <View style={styles.card}>
+            <View style={[styles.card, (isOos || isOverStock) && { borderColor: '#fca5a5', backgroundColor: '#fff5f5' }]}>
               {imageUrl ? (
                 <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
               ) : (
@@ -109,20 +129,27 @@ export function CartScreen() {
                 <Text style={styles.name} numberOfLines={2}>{item.product_variant?.product?.name ?? 'Unknown Product'}</Text>
                 {variantLabel ? <Text style={styles.variant}>{variantLabel}</Text> : null}
                 <Text style={styles.price}>₹{(item.product_variant?.product?.price ?? 0).toFixed(0)}</Text>
+                
+                {isOos ? (
+                  <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '700' }}>⚠️ Out of stock</Text>
+                ) : isOverStock ? (
+                  <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '700' }}>⚠️ Only {maxStock} left in stock!</Text>
+                ) : null}
+
                 <View style={styles.row}>
                   <View style={styles.qtyControls}>
                     <TouchableOpacity
-                      onPress={() => handleSetQuantity(item.variant_id, Math.max(1, item.quantity - 1))}
+                      onPress={() => handleSetQuantity(item.variant_id, item.quantity, Math.max(1, item.quantity - 1), maxStock)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Minus size={14} color={C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                     <Text style={styles.qtyValue}>{item.quantity}</Text>
                     <TouchableOpacity
-                      onPress={() => handleSetQuantity(item.variant_id, item.quantity + 1)}
+                      onPress={() => handleSetQuantity(item.variant_id, item.quantity, item.quantity + 1, maxStock)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Plus size={14} color={C.rose} strokeWidth={2.5} />
+                      <Plus size={14} color={item.quantity >= maxStock ? C.muted : C.rose} strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity onPress={() => handleRemove(item.variant_id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -145,8 +172,8 @@ export function CartScreen() {
           <Text style={styles.freeDelivery}>{subtotal >= 499 ? 'FREE' : `₹${49}`}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.checkoutButton, (isEmpty || loading) && styles.checkoutButtonDisabled]}
-          onPress={() => navigation.navigate('Checkout')}
+          style={[styles.checkoutButton, (isEmpty || loading || hasStockIssue) && styles.checkoutButtonDisabled]}
+          onPress={handleProceedToCheckout}
           disabled={isEmpty || loading}
           activeOpacity={0.9}
         >

@@ -38,6 +38,21 @@ export async function POST(request: Request) {
     for (const item of cartData) {
       let variantObj = Array.isArray(item.product_variant) ? item.product_variant[0] : item.product_variant;
       let productObj = variantObj?.product ? (Array.isArray(variantObj.product) ? variantObj.product[0] : variantObj.product) : null;
+      
+      const stock = variantObj?.stock ?? 10;
+      if (stock <= 0) {
+        return NextResponse.json(
+          { error: `Item "${productObj?.name || 'Product'}" is currently out of stock.` },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      if (item.quantity > stock) {
+        return NextResponse.json(
+          { error: `Quantity for "${productObj?.name || 'Product'}" exceeds available stock (${stock} available).` },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
       const unitPrice = variantObj?.price_override ?? productObj?.price ?? 0;
       subtotal += Number(unitPrice) * item.quantity;
     }

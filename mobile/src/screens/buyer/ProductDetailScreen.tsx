@@ -146,12 +146,28 @@ export function ProductDetailScreen() {
     }
     if (!product) return;
 
+    const maxStock = selectedVariant?.stock ?? 10;
+    if (maxStock <= 0) {
+      showToast('Sorry, this product variant is out of stock!', 'error');
+      return;
+    }
+
+    const variantIdToUse = selectedVariant?.id ?? product.id;
+    const existingCartItem = items.find(
+      (i) => i.variant_id === variantIdToUse || i.product_variant?.id === variantIdToUse
+    );
+    const currentQtyInCart = existingCartItem ? existingCartItem.quantity : 0;
+
+    if (currentQtyInCart + 1 > maxStock) {
+      showToast(`Cannot add more. Max available stock is ${maxStock}!`, 'warning');
+      return;
+    }
+
     if (isInCart) {
       navigation.navigate('Cart');
       return;
     }
 
-    const variantIdToUse = selectedVariant?.id ?? product.id;
     setCartLoading(true);
     try {
       await addToCart(variantIdToUse, 1, product.id);

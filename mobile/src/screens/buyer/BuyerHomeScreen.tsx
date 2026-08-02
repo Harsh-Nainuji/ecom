@@ -264,9 +264,15 @@ export function BuyerHomeScreen() {
         const pal = CARD_PALETTES[index % CARD_PALETTES.length];
         const avg = item.reviews_aggregate?.avg ?? 0;
         const imageUrl = pickPrimaryImage(item);
+        const variants = Array.isArray(item.product_variants) ? item.product_variants : [];
+        const totalStock = variants.length > 0
+          ? variants.reduce((sum: number, v: any) => sum + (v.stock ?? 0), 0)
+          : (item.stock ?? 10);
+        const isOos = totalStock <= 0;
+
         return (
           <TouchableOpacity
-            style={styles.card}
+            style={[styles.card, isOos && { opacity: 0.88 }]}
             activeOpacity={0.92}
             onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
           >
@@ -277,11 +283,15 @@ export function BuyerHomeScreen() {
                 <Text style={[styles.imageText, { color: pal.text }]}>{item.name[0].toUpperCase()}</Text>
               </View>
             )}
-            {(item.reviews_aggregate?.count ?? 0) > 100 && (
+            {isOos ? (
+              <View style={[styles.cardBadge, styles.cardBadgeOos]}>
+                <Text style={styles.cardBadgeTextOos}>Out of Stock</Text>
+              </View>
+            ) : (item.reviews_aggregate?.count ?? 0) > 100 ? (
               <View style={styles.cardBadge}>
                 <Text style={styles.cardBadgeText}>Popular</Text>
               </View>
-            )}
+            ) : null}
             <View style={styles.cardBody}>
               <Text numberOfLines={1} style={styles.productName}>{item.name}</Text>
               {avg > 0 ? (
@@ -417,7 +427,13 @@ const styles = StyleSheet.create({
     backgroundColor: C.rose, borderRadius: R.sm,
     paddingHorizontal: 6, paddingVertical: 2,
   },
+  cardBadgeOos: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
   cardBadgeText: { color: C.white, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  cardBadgeTextOos: { color: '#dc2626', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   cardBody: { padding: S.sm, gap: S.xs },
   productName: { fontSize: 13, fontWeight: '600', color: C.text, lineHeight: 18 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -55,6 +55,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400, headers: corsHeaders });
     }
 
+    // 2.5 Validate stock for every item in cart
+    for (const item of cartData) {
+      let variantObj = Array.isArray(item.product_variant) ? item.product_variant[0] : item.product_variant;
+      let productObj = variantObj?.product ? (Array.isArray(variantObj.product) ? variantObj.product[0] : variantObj.product) : null;
+      const currentStock = variantObj?.stock ?? 10;
+
+      if (currentStock <= 0) {
+        return NextResponse.json(
+          { error: `Item "${productObj?.name || 'Product'}" is out of stock!` },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+      if (item.quantity > currentStock) {
+        return NextResponse.json(
+          { error: `Requested quantity for "${productObj?.name || 'Product'}" exceeds available stock (${currentStock} left).` },
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
     // 3. Group items by seller_id
     const sellerGroups = new Map<string, any[]>();
     for (const item of cartData) {
@@ -101,10 +121,7 @@ export async function POST(request: Request) {
       // Calculate commission for the items in the order based on the active rule
       let calculatedCommission = 0;
       if (flatPercent === 0) {
-        // Tiered Slab Rules active:
-        // - Unit price < ₹1,000: 15% cut
-        // - Unit price ₹1,000 to ₹10,000: 10% cut
-        // - Unit price > ₹10,000: 5% cut
+        // Tiered Slab Rules active
         for (const item of items) {
           let itemCommRate = 5;
           if (item.unit_price < 1000) {
@@ -137,6 +154,23 @@ export async function POST(request: Request) {
 
       if (orderId) {
         createdOrderIds.push(orderId);
+
+        // Atomically decrement stock for placed items
+        for (const item of items) {
+          const { data: vCurrent } = await supabaseAdmin
+            .from('product_variants')
+            .select('stock')
+            .eq('id', item.variant_id)
+            .maybeSingle();
+
+          if (vCurrent && vCurrent.stock !== null) {
+            const newStock = Math.max(0, vCurrent.stock - item.quantity);
+            await supabaseAdmin
+              .from('product_variants')
+              .update({ stock: newStock })
+              .eq('id', item.variant_id);
+          }
+        }
       }
     }
 
