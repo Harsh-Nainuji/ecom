@@ -1,4 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
+import { useCallback } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ShoppingCart, Minus, Plus } from 'lucide-react-native';
@@ -14,8 +15,14 @@ const CARD_COLORS = [C.card0, C.card1, C.card2, C.card3];
 
 export function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
-  const { items, loading, setQuantity, remove } = useCart();
+  const { items, loading, refresh, setQuantity, remove } = useCart();
   const { session } = useAuth();
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   if (!session?.user) {
     return (

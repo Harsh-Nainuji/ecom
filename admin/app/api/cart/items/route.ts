@@ -38,25 +38,79 @@ export async function GET(request: Request) {
       product_variant?: any;
     };
 
-    const items = ((data as CartRow[] | null) || []).map((item) => {
-      let variantObj = null;
-      if (Array.isArray(item.product_variant)) {
-        variantObj = item.product_variant[0] || null;
-      } else {
-        variantObj = item.product_variant || null;
-      }
+    const items = await Promise.all(
+      ((data as CartRow[] | null) || []).map(async (item) => {
+        let variantObj = null;
+        if (Array.isArray(item.product_variant)) {
+          variantObj = item.product_variant[0] || null;
+        } else {
+          variantObj = item.product_variant || null;
+        }
 
-      if (variantObj && Array.isArray(variantObj.product)) {
-        variantObj.product = variantObj.product[0] || null;
-      }
+        let productObj = variantObj?.product ? (Array.isArray(variantObj.product) ? variantObj.product[0] : variantObj.product) : null;
 
-      return {
-        id: item.id,
-        quantity: item.quantity,
-        variant_id: item.variant_id,
-        product_variant: variantObj,
-      };
-    });
+        if (!productObj && item.variant_id) {
+          const { data: vRecord } = await supabaseAdmin
+            .from('product_variants')
+            .select('*, product:products(*, product_images(*))')
+            .eq('id', item.variant_id)
+            .maybeSingle();
+
+          if (vRecord) {
+            variantObj = vRecord;
+            productObj = Array.isArray(vRecord.product) ? vRecord.product[0] : vRecord.product;
+          } else {
+            const { data: vByProd } = await supabaseAdmin
+              .from('product_variants')
+              .select('*, product:products(*, product_images(*))')
+              .eq('product_id', item.variant_id)
+              .maybeSingle();
+
+            if (vByProd) {
+              variantObj = vByProd;
+              productObj = Array.isArray(vByProd.product) ? vByProd.product[0] : vByProd.product;
+            } else {
+              const { data: directProd } = await supabaseAdmin
+                .from('products')
+                .select('*, product_images(*)')
+                .eq('id', item.variant_id)
+                .maybeSingle();
+
+              if (directProd) {
+                productObj = directProd;
+                variantObj = {
+                  id: item.variant_id,
+                  product_id: directProd.id,
+                  size: null,
+                  color: null,
+                  stock: 10,
+                  price_override: null,
+                  product: directProd,
+                };
+              }
+            }
+          }
+        }
+
+        if (productObj) {
+          productObj = {
+            ...productObj,
+            price: Number(productObj.price ?? 0),
+            product_images: Array.isArray(productObj.product_images) ? productObj.product_images : [],
+          };
+          if (variantObj) {
+            variantObj.product = productObj;
+          }
+        }
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          variant_id: item.variant_id,
+          product_variant: variantObj,
+        };
+      })
+    );
 
     return NextResponse.json({ items }, { headers: corsHeaders });
   } catch (err: any) {

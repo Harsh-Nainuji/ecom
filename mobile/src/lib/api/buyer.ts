@@ -134,97 +134,150 @@ export async function fetchCart(buyerId: string) {
     const res = await fetch(`${getApiBaseUrl()}/api/cart/items?buyerId=${buyerId}`);
     if (res.ok) {
       const json = await res.json();
-      if (json.items) {
+      if (json.items && Array.isArray(json.items)) {
         return json.items as CartItemWithProduct[];
       }
     }
   } catch {
-    // Fall through
+    // Backend API offline, fallback to Supabase client
   }
 
   const { data, error } = await supabase
     .from('cart_items')
     .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*)))')
     .eq('buyer_id', buyerId);
-  if (error) throw new Error(error.message);
-  type CartRow = {
-    id: string;
-    buyer_id: string;
-    quantity: number;
-    variant_id: string;
-    product_variant?: (ProductVariant & { product: Product })[] | null;
-  };
 
-  return (data as CartRow[] | null)?.map((item) => ({
-    id: item.id,
-    quantity: item.quantity,
-    variant_id: item.variant_id,
-    product_variant: item.product_variant?.[0] ?? null,
-  })) as CartItemWithProduct[];
+  if (!error && data) {
+    const items = await Promise.all(
+      (data || []).map(async (item: any) => {
+        let variantObj = Array.isArray(item.product_variant) ? item.product_variant[0] : item.product_variant;
+        let productObj = variantObj?.product ? (Array.isArray(variantObj.product) ? variantObj.product[0] : variantObj.product) : null;
+
+        // Fallback: If product_variant join returned null, resolve by variant_id or product_id
+        if (!productObj && item.variant_id) {
+          // 1. Check product_variants by id = item.variant_id
+          const { data: vRecord } = await supabase
+            .from('product_variants')
+            .select('*, product:products(*, product_images(*))')
+            .eq('id', item.variant_id)
+            .maybeSingle();
+
+          if (vRecord) {
+            variantObj = vRecord;
+            productObj = Array.isArray(vRecord.product) ? vRecord.product[0] : vRecord.product;
+          } else {
+            // 2. Check product_variants by product_id = item.variant_id
+            const { data: vByProd } = await supabase
+              .from('product_variants')
+              .select('*, product:products(*, product_images(*))')
+              .eq('product_id', item.variant_id)
+              .maybeSingle();
+
+            if (vByProd) {
+              variantObj = vByProd;
+              productObj = Array.isArray(vByProd.product) ? vByProd.product[0] : vByProd.product;
+            } else {
+              // 3. Check products directly by id = item.variant_id
+              const { data: directProd } = await supabase
+                .from('products')
+                .select('*, product_images(*)')
+                .eq('id', item.variant_id)
+                .maybeSingle();
+
+              if (directProd) {
+                productObj = directProd;
+                variantObj = {
+                  id: item.variant_id,
+                  product_id: directProd.id,
+                  size: null,
+                  color: null,
+                  stock: 10,
+                  price_override: null,
+                  product: directProd,
+                };
+              }
+            }
+          }
+        }
+
+        if (productObj) {
+          productObj = {
+            ...productObj,
+            price: Number(productObj.price ?? 0),
+            product_images: Array.isArray(productObj.product_images) ? productObj.product_images : [],
+          };
+          if (variantObj) {
+            variantObj.product = productObj;
+          }
+        }
+
+        return {
+          id: item.id,
+          quantity: item.quantity,
+          variant_id: item.variant_id,
+          product_variant: variantObj,
+        };
+      })
+    );
+
+    return items as CartItemWithProduct[];
+  }
+
+  if (error) throw new Error(error.message);
+  return [];
 }
 
 export async function updateCartItem(buyerId: string, variantId: string, quantity: number, productId?: string) {
-  let resolvedVariantId = variantId;
-  try {
-    const { data: variants } = await supabase
+  let targetVariantId = variantId;
+  const targetProductId = productId || variantId;
+
+  // 1. Check if targetVariantId is a valid variant ID
+  const { data: vCheck } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('id', targetVariantId)
+    .maybeSingle();
+
+  if (vCheck) {
+    targetVariantId = vCheck.id;
+  } else {
+    // 2. Resolve variant by product_id
+    const { data: existingVariants } = await supabase
       .from('product_variants')
       .select('id')
-      .eq('product_id', variantId);
+      .eq('product_id', targetProductId)
+      .limit(1);
 
-    if (variants && variants.length > 0) {
-      resolvedVariantId = variants[0].id;
+    if (existingVariants && existingVariants.length > 0) {
+      targetVariantId = existingVariants[0].id;
     } else {
-      const { data: isVar } = await supabase
-        .from('product_variants')
-        .select('id')
-        .eq('id', variantId)
-        .single();
-
-      if (!isVar) {
-        const targetProductId = productId || variantId;
-        const { data: newVar } = await supabase
-          .from('product_variants')
-          .insert({ product_id: targetProductId, stock: 10, size: null, color: null })
-          .select('id')
-          .single();
-        if (newVar) {
-          resolvedVariantId = newVar.id;
-        }
-      }
+      targetVariantId = ''; // Requires backend API to auto-create variant
     }
-  } catch (e) {
-    console.warn('Failed resolving variant: ', e);
   }
 
+  // 3. Direct Supabase client upsert if variant ID is valid
+  if (targetVariantId && targetVariantId !== targetProductId) {
+    const payload = { buyer_id: buyerId, variant_id: targetVariantId, quantity };
+    const { error } = await supabase
+      .from('cart_items')
+      .upsert(payload, { onConflict: 'buyer_id,variant_id' });
+
+    if (!error) return;
+  }
+
+  // 4. API endpoint fallback to create variant and upsert cart item via service role
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buyerId, variantId: resolvedVariantId, productId, quantity }),
+      body: JSON.stringify({ buyerId, variantId: targetVariantId || variantId, productId: targetProductId, quantity }),
     });
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || 'Failed to update cart');
-    }
-  } catch {
-    const payload = { buyer_id: buyerId, variant_id: resolvedVariantId, quantity };
-    const { error } = await supabase
-      .from('cart_items')
-      .upsert(payload, { onConflict: 'buyer_id,variant_id' });
-    if (error) {
-      try {
-        const res = await fetch(`${getApiBaseUrl()}/api/cart`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ buyerId, variantId: resolvedVariantId, productId, quantity }),
-        });
-        if (!res.ok) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Failed to update cart');
-        }
-      } catch {
-        throw new Error(error.message);
-      }
+    if (res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    if (json.error) throw new Error(json.error);
+  } catch (err: any) {
+    if (err.message && !err.message.includes('fetch')) {
+      throw err;
     }
   }
 }
