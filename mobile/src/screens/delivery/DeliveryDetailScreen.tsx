@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { Phone, Map, Clipboard } from 'lucide-react-native';
@@ -134,123 +134,157 @@ export function DeliveryDetailScreen() {
     : 'No items found';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={[styles.statusBanner, order.delivery_status === 'completed' && styles.statusBannerDone]}>
-        <Text style={[styles.statusBannerText, statusLabel && { color: statusLabel.tint }]}>
-          {statusLabel?.text ?? 'Delivery status'}
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ORDER DETAILS</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={T.label}>Order ID</Text>
-            <Text style={T.h4}>#{order.id.slice(0, 8).toUpperCase()}</Text>
-          </View>
-          <View style={[styles.row, styles.rowBorder]}>
-            <Text style={T.label}>Items</Text>
-            <Text style={[T.bodySmall, { flex: 1, textAlign: 'right' }]}>{itemsLabel}</Text>
-          </View>
-          <View style={[styles.row, styles.rowBorder]}>
-            <Text style={T.label}>COD Amount</Text>
-            <Text style={T.price}>₹{order.total_amount.toLocaleString()}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>CUSTOMER</Text>
-        <View style={styles.card}>
-          <Text style={T.h3}>{order.shipping_address.recipient_name}</Text>
-          <Text style={[T.bodySmall, { color: C.text3, marginTop: 2 }]}>{order.shipping_address.phone}</Text>
-          <TouchableOpacity
-            style={styles.callBtn}
-            onPress={() => order.shipping_address.phone && Linking.openURL(`tel:${order.shipping_address.phone}`)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.btnContent}>
-              <Phone size={14} color={C.rose} strokeWidth={2} />
-              <Text style={styles.callBtnText}>Call Customer</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>DELIVERY ADDRESS</Text>
-        <View style={styles.card}>
-          <Text style={T.body}>{addressLines.join('\n')}</Text>
-          <TouchableOpacity
-            style={styles.navBtn}
-            onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(addressLines.join(', '))}`)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.btnContent}>
-              <Map size={14} color={C.text2} strokeWidth={2} />
-              <Text style={styles.navBtnText}>Open in Maps</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {(order.delivery_status === 'assigned' || order.delivery_status === 'failed') && (
-        <TouchableOpacity
-          style={[BTN.primary, { marginHorizontal: S.lg, marginBottom: S.sm }]}
-          onPress={handleStartDelivery}
-          disabled={actionLoading}
-          activeOpacity={0.9}
-        >
-          <Text style={BTN.primaryText}>
-            {actionLoading ? 'Updating…' : order.delivery_status === 'failed' ? 'Retry Delivery' : 'Start Delivery'}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={[styles.statusBanner, order.delivery_status === 'completed' && styles.statusBannerDone]}>
+          <Text style={[styles.statusBannerText, statusLabel && { color: statusLabel.tint }]}>
+            {statusLabel?.text ?? 'Delivery status'}
           </Text>
-        </TouchableOpacity>
-      )}
+        </View>
 
-      {showOtpSection && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DELIVERY OTP VERIFICATION</Text>
+          <Text style={styles.sectionTitle}>ORDER DETAILS</Text>
           <View style={styles.card}>
-            <View style={styles.tipRow}>
-              <Clipboard size={14} color={C.muted} strokeWidth={2} />
-              <Text style={[T.bodySmall, { color: C.muted, flex: 1 }]}>Ask the customer for their delivery OTP to confirm handover.</Text>
+            <View style={styles.row}>
+              <Text style={T.label}>Order ID</Text>
+              <Text style={T.h4}>#{order.id.slice(0, 8).toUpperCase()}</Text>
             </View>
-            <View>
-              <Text style={INPUT.label}>Enter Customer OTP</Text>
-              <TextInput
-                style={[INPUT.base, focused && INPUT.focused, styles.otpInput]}
-                placeholder="e.g. 4821"
-                placeholderTextColor={C.muted}
-                keyboardType="number-pad"
-                maxLength={6}
-                value={otp}
-                onChangeText={setOtp}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                editable={!actionLoading}
-              />
-              {otpError ? <Text style={[T.caption, { color: C.error, marginTop: 4 }]}>{otpError}</Text> : null}
+            <View style={[styles.row, styles.rowBorder]}>
+              <Text style={T.label}>Items</Text>
+              <Text style={[T.bodySmall, { flex: 1, textAlign: 'right' }]}>{itemsLabel}</Text>
             </View>
+            <View style={[styles.row, styles.rowBorder]}>
+              <Text style={T.label}>COD Amount</Text>
+              <Text style={T.price}>₹{order.total_amount.toLocaleString()}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>CUSTOMER</Text>
+          <View style={styles.card}>
+            <Text style={T.h3}>{order.shipping_address.recipient_name}</Text>
+            <Text style={[T.bodySmall, { color: C.text3, marginTop: 2 }]}>{order.shipping_address.phone}</Text>
             <TouchableOpacity
-              style={[BTN.primary, (!otp || actionLoading) && BTN.disabled]}
-              onPress={handleVerify}
-              disabled={!otp || actionLoading}
-              activeOpacity={0.9}
+              style={styles.callBtn}
+              onPress={() => order.shipping_address.phone && Linking.openURL(`tel:${order.shipping_address.phone}`)}
+              activeOpacity={0.8}
             >
-              <Text style={BTN.primaryText}>{actionLoading ? 'Verifying…' : 'Confirm OTP & Complete'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[BTN.secondary, { marginTop: S.sm }]}
-              onPress={handleCustomerUnavailable}
-              disabled={actionLoading}
-              activeOpacity={0.9}
-            >
-              <Text style={BTN.secondaryText}>{actionLoading ? 'Updating…' : 'Mark Customer Unavailable'}</Text>
+              <View style={styles.btnContent}>
+                <Phone size={14} color={C.rose} strokeWidth={2} />
+                <Text style={styles.callBtnText}>Call Customer</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
-      )}
-    </ScrollView>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>DELIVERY ADDRESS</Text>
+          <View style={styles.card}>
+            <Text style={T.body}>{addressLines.join('\n')}</Text>
+            <TouchableOpacity
+              style={styles.navBtn}
+              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(addressLines.join(', '))}`)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.btnContent}>
+                <Map size={14} color={C.text2} strokeWidth={2} />
+                <Text style={styles.navBtnText}>Open in Maps</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {order.delivery_status !== 'completed' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>UPDATE ORDER STATUS</Text>
+            <View style={[styles.card, { flexDirection: 'row', gap: S.sm, flexWrap: 'wrap' }]}>
+              {(['packed', 'shipped', 'out_for_delivery'] as const).map((status) => {
+                const isActive = order.order_status === status;
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusBtn,
+                      isActive && styles.statusBtnActive,
+                      actionLoading && BTN.disabled
+                    ]}
+                    onPress={async () => {
+                      if (isActive || actionLoading) return;
+                      setActionLoading(true);
+                      try {
+                        const deliveryState = status === 'out_for_delivery' ? 'out_for_delivery' : 'assigned';
+                        await updateDeliveryOrderStatus(order.id, status, deliveryState);
+                        await load();
+                        Alert.alert('Status Updated', `Order status changed to ${status.replace(/_/g, ' ')}.`);
+                      } catch (err) {
+                        Alert.alert('Update failed', (err as Error).message);
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.statusBtnText, isActive && styles.statusBtnTextActive]}>
+                      {status === 'out_for_delivery' ? 'Out for Delivery' : status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {showOtpSection && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>DELIVERY OTP VERIFICATION</Text>
+            <View style={styles.card}>
+              <View style={styles.tipRow}>
+                <Clipboard size={14} color={C.muted} strokeWidth={2} />
+                <Text style={[T.bodySmall, { color: C.muted, flex: 1 }]}>Ask the customer for their delivery OTP to confirm handover.</Text>
+              </View>
+              <View>
+                <Text style={INPUT.label}>Enter Customer OTP</Text>
+                <TextInput
+                  style={[INPUT.base, focused && INPUT.focused, styles.otpInput]}
+                  placeholder="e.g. 4821"
+                  placeholderTextColor={C.muted}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={setOtp}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  editable={!actionLoading}
+                />
+                {otpError ? <Text style={[T.caption, { color: C.error, marginTop: 4 }]}>{otpError}</Text> : null}
+              </View>
+              <TouchableOpacity
+                style={[BTN.primary, (!otp || actionLoading) && BTN.disabled]}
+                onPress={handleVerify}
+                disabled={!otp || actionLoading}
+                activeOpacity={0.9}
+              >
+                <Text style={BTN.primaryText}>{actionLoading ? 'Verifying…' : 'Confirm OTP & Complete'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[BTN.secondary, { marginTop: S.sm }]}
+                onPress={handleCustomerUnavailable}
+                disabled={actionLoading}
+                activeOpacity={0.9}
+              >
+                <Text style={BTN.secondaryText}>{actionLoading ? 'Updating…' : 'Mark Customer Unavailable'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -277,4 +311,27 @@ const styles = StyleSheet.create({
   otpInput: { textAlign: 'center', fontSize: 24, fontWeight: '800', letterSpacing: 8, height: 64 },
   btnContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: S.xs, paddingRight: S.sm },
+  statusBtn: {
+    flex: 1,
+    minWidth: 90,
+    height: 40,
+    borderRadius: R.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.surface,
+  },
+  statusBtnActive: {
+    backgroundColor: C.rose,
+    borderColor: C.rose,
+  },
+  statusBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.text2,
+  },
+  statusBtnTextActive: {
+    color: '#fff',
+  },
 });

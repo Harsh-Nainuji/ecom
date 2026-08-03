@@ -94,7 +94,7 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     .select('otp_code, expires_at, used, attempt_count')
     .eq('order_id', orderId)
     .eq('used', false)
-    .order('created_at', { ascending: false })
+    .order('generated_at', { ascending: false })
     .limit(1)
     .single();
 
