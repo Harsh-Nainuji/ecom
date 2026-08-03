@@ -154,7 +154,23 @@ export async function getCommissionSettings() {
     .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  
+  if (error) {
+    // Graceful fallback if commission_mode column does not exist in schema cache
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('commission_settings')
+      .select('commission_percent')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (fallbackError) throw new Error(fallbackError.message);
+    return {
+      commission_percent: fallbackData ? Number(fallbackData.commission_percent) : 5.00,
+      commission_mode: 'flat' as const,
+    };
+  }
+
   return {
     commission_percent: data ? Number(data.commission_percent) : 5.00,
     commission_mode: data?.commission_mode ? (data.commission_mode as 'flat' | 'tiered') : 'flat',
@@ -539,12 +555,22 @@ export async function updateCommissionMode(mode: 'flat' | 'tiered') {
       .from('commission_settings')
       .update({ commission_mode: mode })
       .eq('id', existing.id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.message.includes('column') && error.message.includes('commission_mode')) {
+        throw new Error("Please run the database migration (specifically '20260803000000_commission_slabs.sql') in your Supabase SQL Editor first to enable tiered slabs.");
+      }
+      throw new Error(error.message);
+    }
   } else {
     const { error } = await supabase
       .from('commission_settings')
       .insert({ commission_mode: mode });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.message.includes('column') && error.message.includes('commission_mode')) {
+        throw new Error("Please run the database migration (specifically '20260803000000_commission_slabs.sql') in your Supabase SQL Editor first to enable tiered slabs.");
+      }
+      throw new Error(error.message);
+    }
   }
   revalidatePath('/revenue');
 }

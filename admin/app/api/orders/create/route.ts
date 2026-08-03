@@ -101,12 +101,31 @@ export async function POST(request: Request) {
     }
 
     // Fetch active commission rate from settings
-    const { data: commSetting } = await supabaseAdmin
+    let commSetting: any = null;
+    const resSetting = await supabaseAdmin
       .from('commission_settings')
       .select('commission_percent, commission_mode')
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (resSetting.error) {
+      // Graceful fallback if commission_mode column doesn't exist
+      const resFallback = await supabaseAdmin
+        .from('commission_settings')
+        .select('commission_percent')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!resFallback.error && resFallback.data) {
+        commSetting = {
+          commission_percent: resFallback.data.commission_percent,
+          commission_mode: 'flat',
+        };
+      }
+    } else {
+      commSetting = resSetting.data;
+    }
 
     const flatPercent = commSetting ? Number(commSetting.commission_percent) : 5.00;
     const isTiered = commSetting?.commission_mode === 'tiered';
