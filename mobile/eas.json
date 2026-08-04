@@ -11,6 +11,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ecom-tau-bice.vercel.app"
       }
     },
     "production": {
@@ -19,6 +22,9 @@
       },
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ecom-tau-bice.vercel.app"
       }
     }
   },
