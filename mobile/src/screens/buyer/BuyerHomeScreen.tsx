@@ -234,7 +234,7 @@ export function BuyerHomeScreen() {
           <LinearGradient colors={[C.card2, C.peach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.promoStrip}>
             <View style={styles.promoItem}>
               <Truck size={15} color={C.rose} strokeWidth={2} />
-              <Text style={styles.promoText}>Free delivery above ₹499</Text>
+              <Text style={styles.promoText}>Free delivery on all orders</Text>
             </View>
             <View style={styles.promoDivider} />
             <View style={styles.promoItem}>

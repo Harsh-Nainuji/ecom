@@ -29,3 +29,6 @@ mobile/.env*.local
 .idea/
 .claude/
 *.log
+
+# Documentation
+doc/

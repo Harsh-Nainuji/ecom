@@ -1,16 +1,49 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { User, Heart, MapPin, LogOut, ChevronRight, Store } from 'lucide-react-native';
+import { User, Heart, MapPin, LogOut, ChevronRight, Store, HelpCircle, Trash2, FileText, ShieldCheck } from 'lucide-react-native';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
 import { C, S, R, BTN, T } from '../../lib/theme';
+import { supabase } from '../../lib/supabase';
 
 export function BuyerProfileScreen() {
   const { profile, signOut, setActiveRole } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleRequestDeletion() {
+    if (!profile) return;
+    Alert.alert(
+      'Request Account Deletion',
+      'Are you sure you want to request deletion of your account and all associated data? This request will be processed manually by our administration team.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit Request',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+               const { error } = await supabase
+                 .from('account_deletion_requests')
+                 .insert({ user_id: profile.id });
+
+               if (error) throw error;
+               Alert.alert('Request Submitted', 'Your account deletion request has been submitted successfully and will be processed manually by admin.');
+            } catch (err: any) {
+               Alert.alert('Submission Failed', err.message || 'Could not submit request.');
+            } finally {
+               setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  }
 
   if (!profile) {
     return (
@@ -53,7 +86,33 @@ export function BuyerProfileScreen() {
       icon: MapPin,
       onPress: () => navigation.navigate('AddressBook' as never),
     },
+    {
+      label: 'Terms & Privacy Policy',
+      icon: FileText,
+      onPress: () => navigation.navigate('Terms' as never),
+    },
+    {
+      label: 'Privacy & Data Rights (DPDPA 2023)',
+      icon: ShieldCheck,
+      onPress: () => navigation.navigate('PrivacyConsent' as never),
+    },
+    {
+      label: 'Support / Help',
+      icon: HelpCircle,
+      onPress: () => {
+        Alert.alert(
+          'Support & Help',
+          'For support, help, or queries, please email us at support@fabzone.dev.\n\n[Grievance Officer: contact details pending from client]'
+        );
+      },
+    },
+    {
+      label: 'Request Account Deletion',
+      icon: Trash2,
+      onPress: handleRequestDeletion,
+    },
   ];
+
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + S.lg }]}>
@@ -89,10 +148,18 @@ export function BuyerProfileScreen() {
         })}
       </View>
 
+      {deleting && (
+        <View style={{ marginVertical: S.sm, alignItems: 'center' }}>
+          <ActivityIndicator color={C.rose} />
+          <Text style={[T.caption, { color: C.muted, marginTop: 4 }]}>Submitting deletion request...</Text>
+        </View>
+      )}
+
       <TouchableOpacity
         style={styles.logoutBtn}
         onPress={signOut}
         activeOpacity={0.8}
+        disabled={deleting}
       >
         <LogOut size={16} color={C.error} strokeWidth={2} />
         <Text style={styles.logoutText}>Sign Out</Text>

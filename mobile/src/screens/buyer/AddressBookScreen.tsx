@@ -39,6 +39,7 @@ export function AddressBookScreen() {
   const [editing, setEditing] = useState<Address | null>(null);
   const [form, setForm] = useState<Address>(emptyForm);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -67,6 +68,7 @@ export function AddressBookScreen() {
     setEditing(addr ?? null);
     setIsAdding(true);
     setForm(addr ? { ...addr } : { ...emptyForm });
+    setConsentChecked(!!addr); // auto-check if editing an existing address
   };
 
   const resetForm = () => {
@@ -74,11 +76,16 @@ export function AddressBookScreen() {
     setIsAdding(false);
     setForm(emptyForm);
     setFocusedField(null);
+    setConsentChecked(false);
   };
 
   const handleSave = async () => {
     if (!form.recipient_name || !form.phone || !form.line1 || !form.city || !form.state || !form.postal_code) {
       Alert.alert('Missing fields', 'Please fill all required address fields.');
+      return;
+    }
+    if (!consentChecked) {
+      Alert.alert('Consent required', 'You must consent to storing this shipping address for order delivery.');
       return;
     }
     setSaving(true);
@@ -159,14 +166,37 @@ export function AddressBookScreen() {
         </View>
         <Text style={[T.bodySmall, { color: C.text2 }]}>Set as default address</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: S.sm, paddingHorizontal: 2 }}
+        onPress={() => setConsentChecked(!consentChecked)}
+        activeOpacity={0.8}
+      >
+        <View style={{
+          width: 20,
+          height: 20,
+          borderRadius: R.sm,
+          borderWidth: 2,
+          borderColor: consentChecked ? C.rose : C.border,
+          backgroundColor: consentChecked ? C.rose : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {consentChecked && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>}
+        </View>
+        <Text style={{ flex: 1, ...T.bodySmall, color: C.text2 }}>
+          I consent to storing this shipping address for order delivery.
+        </Text>
+      </TouchableOpacity>
+
       <View style={styles.formActions}>
         <TouchableOpacity style={[BTN.secondary, { flex: 1 }]} onPress={resetForm} activeOpacity={0.8}>
           <Text style={BTN.secondaryText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[BTN.primary, { flex: 1 }, saving && BTN.disabled]}
+          style={[BTN.primary, { flex: 1 }, (saving || !consentChecked) && BTN.disabled]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || !consentChecked}
           activeOpacity={0.8}
         >
           <Text style={BTN.primaryText}>{saving ? 'Saving…' : 'Save'}</Text>

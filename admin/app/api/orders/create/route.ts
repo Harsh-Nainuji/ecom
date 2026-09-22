@@ -14,21 +14,27 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
-    const { buyerId, addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json();
+    const { buyerId, addressId, razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentMethod = 'online' } = await request.json();
 
-    if (!buyerId || !addressId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if (!buyerId || !addressId) {
       return NextResponse.json({ error: 'Missing required order placement fields' }, { status: 400, headers: corsHeaders });
     }
 
-    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (razorpayKeySecret) {
-      const generatedSignature = crypto
-        .createHmac('sha256', razorpayKeySecret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest('hex');
+    if (paymentMethod === 'online') {
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return NextResponse.json({ error: 'Missing required online payment fields' }, { status: 400, headers: corsHeaders });
+      }
 
-      if (generatedSignature !== razorpay_signature) {
-        return NextResponse.json({ error: 'Invalid Razorpay payment signature' }, { status: 400, headers: corsHeaders });
+      const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (razorpayKeySecret) {
+        const generatedSignature = crypto
+          .createHmac('sha256', razorpayKeySecret)
+          .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+          .digest('hex');
+
+        if (generatedSignature !== razorpay_signature) {
+          return NextResponse.json({ error: 'Invalid Razorpay payment signature' }, { status: 400, headers: corsHeaders });
+        }
       }
     }
 
@@ -145,7 +151,7 @@ export async function POST(request: Request) {
 
     for (const [sellerId, items] of sellerGroups.entries()) {
       const subtotal = items.reduce((acc, i) => acc + i.total_price, 0);
-      const deliveryFee = subtotal >= 499 ? 0 : 49;
+      const deliveryFee = 0;
       const totalAmount = subtotal + deliveryFee;
 
       // Calculate commission for the items in the order based on the active rule
@@ -174,8 +180,8 @@ export async function POST(request: Request) {
         p_commission: calculatedCommission,
         p_total: totalAmount,
         p_order_items: items,
-        p_razorpay_order_id: razorpay_order_id,
-        p_razorpay_payment_id: razorpay_payment_id,
+        p_razorpay_order_id: paymentMethod === 'online' ? razorpay_order_id : null,
+        p_razorpay_payment_id: paymentMethod === 'online' ? razorpay_payment_id : null,
       });
 
       if (rpcError) {
@@ -185,7 +191,23 @@ export async function POST(request: Request) {
       if (orderId) {
         createdOrderIds.push(orderId);
 
-        // Atomically decrement stock for placed items
+        const orderUpdates: any = {
+          payment_method: paymentMethod,
+        };
+
+        if (paymentMethod === 'online') {
+          orderUpdates.payment_confirmed_at = new Date().toISOString();
+          orderUpdates.payment_status = 'paid';
+        } else {
+          orderUpdates.payment_status = 'pending';
+          orderUpdates.payment_confirmed_at = null;
+        }
+
+        await supabaseAdmin
+          .from('orders')
+          .update(orderUpdates)
+          .eq('id', orderId);
+
         for (const item of items) {
           const { data: vCurrent } = await supabaseAdmin
             .from('product_variants')

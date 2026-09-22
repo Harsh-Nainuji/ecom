@@ -1,4 +1,4 @@
-import { LayoutDashboard, PackageSearch, ShoppingBag, Truck, Users, Coins, Image } from 'lucide-react';
+import { LayoutDashboard, PackageSearch, Tag, ShoppingBag, Truck, Users, Coins, Image, Settings } from 'lucide-react';
 
 export const navItems = [
   {
@@ -17,6 +17,11 @@ export const navItems = [
     icon: ShoppingBag,
   },
   {
+    label: 'Categories',
+    href: '/categories',
+    icon: Tag,
+  },
+  {
     label: 'Products',
     href: '/products',
     icon: PackageSearch,
@@ -26,6 +31,7 @@ export const navItems = [
     href: '/orders',
     icon: Truck,
   },
+
   {
     label: 'Deliveries',
     href: '/deliveries',
@@ -41,4 +47,10 @@ export const navItems = [
     href: '/banners',
     icon: Image,
   },
+  {
+    label: 'Settings',
+    href: '/settings',
+    icon: Settings,
+  },
 ];
+

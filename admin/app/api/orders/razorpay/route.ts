@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       subtotal += Number(unitPrice) * item.quantity;
     }
 
-    const deliveryFee = subtotal >= 499 ? 0 : 49;
+    const deliveryFee = 0;
     const totalAmount = subtotal + deliveryFee;
     const amountInPaise = Math.round(totalAmount * 100);
 

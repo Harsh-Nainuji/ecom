@@ -75,6 +75,8 @@ export async function fetchDeliveryOrder(orderId: string) {
     delivery_otps: Array.isArray(data.delivery_otps) ? (data.delivery_otps[0] ?? null) : (data.delivery_otps ?? null),
     delivery_status: (data.delivery_status ?? 'unassigned') as DeliveryState,
     delivery_partner_id: data.delivery_partner_id,
+    payment_method: data.payment_method,
+    payment_confirmed_at: data.payment_confirmed_at,
   } satisfies DeliveryOrderDetail;
 }
 
@@ -96,7 +98,7 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     .eq('used', false)
     .order('generated_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error('No active OTP found for this delivery');
@@ -109,6 +111,10 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     throw new Error('OTP already used for this delivery');
   }
 
+  if (data.attempt_count >= 5) {
+    throw new Error('Too many failed attempts. Delivery verification is locked. Please contact support.');
+  }
+
   if (expiryTime && expiryTime < now) {
     throw new Error('OTP has expired. Ask the customer to request a redelivery.');
   }
@@ -117,7 +123,6 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     await supabase.from('delivery_otps').update({ attempt_count: nextAttempts }).eq('order_id', orderId);
     throw new Error('Invalid OTP');
   }
-
   const { error: otpError } = await supabase
     .from('delivery_otps')
     .update({ used: true, attempt_count: nextAttempts })
@@ -129,4 +134,16 @@ export async function verifyDeliveryOtp(orderId: string, otpInput: string) {
     .update({ order_status: 'delivered', delivery_status: 'completed' })
     .eq('id', orderId);
   if (orderError) throw new Error(orderError.message);
+}
+
+export async function confirmCashCollection(orderId: string, partnerId: string) {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      payment_confirmed_at: new Date().toISOString(),
+      cash_collected_by: partnerId,
+      payment_status: 'paid',
+    })
+    .eq('id', orderId);
+  if (error) throw new Error(error.message);
 }

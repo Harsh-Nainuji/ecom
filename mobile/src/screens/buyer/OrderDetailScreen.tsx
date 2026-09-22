@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { ClipboardList, CreditCard, Package, Truck, Bike, Check, X, Star } from 'lucide-react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ClipboardList, CreditCard, Package, Truck, Bike, Check, X, Star, ExternalLink } from 'lucide-react-native';
+
 import { cancelOrder, createReview, fetchOrderDetail } from '../../lib/api/buyer';
+import { generateAndShareTaxInvoice } from '../../lib/pdfGenerator';
 import type { BuyerStackParamList } from '../../navigation/BuyerStack';
+
 import type { OrderDetail } from '../../lib/types';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +35,7 @@ const STEP_ICONS: Record<OrderDetail['order_status'], any> = {
 };
 
 export function OrderDetailScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
   const route = useRoute<RouteProp<BuyerStackParamList, 'OrderDetail'>>();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,12 +167,46 @@ export function OrderDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Header */}
       <View style={styles.headerCard}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={T.label}>Order ID</Text>
           <Text style={T.h3}>#{order.id.slice(0, 8).toUpperCase()}</Text>
           <Text style={[T.caption, { marginTop: 2 }]}>{new Date(order.placed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            <View style={{
+              backgroundColor: order.payment_method === 'cod' ? '#fff7ed' : '#f0fdf4',
+              borderColor: order.payment_method === 'cod' ? '#ffedd5' : '#bbf7d0',
+              borderWidth: 1,
+              borderRadius: R.sm,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+            }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: order.payment_method === 'cod' ? '#ea580c' : '#16a34a' }}>
+                {(order.payment_method || 'online').toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          {order.payment_method === 'cod' ? (
+            order.payment_confirmed_at ? (
+              <Text style={[T.caption, { marginTop: 6, color: C.success, fontWeight: '700' }]}>
+                Delivered on {new Date(order.payment_confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            ) : (
+              <Text style={[T.caption, { marginTop: 6, color: '#d97706', fontWeight: '700' }]}>
+                Pay on Delivery
+              </Text>
+            )
+          ) : (
+            order.payment_confirmed_at ? (
+              <Text style={[T.caption, { marginTop: 6, color: C.success, fontWeight: '700' }]}>
+                Payment received on {new Date(order.payment_confirmed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            ) : (
+              <Text style={[T.caption, { marginTop: 6, color: C.error, fontWeight: '700' }]}>
+                Payment pending
+              </Text>
+            )
+          )}
         </View>
         <View style={styles.amountBadge}>
           <Text style={T.label}>Total</Text>
@@ -176,7 +215,7 @@ export function OrderDetailScreen() {
       </View>
 
       {/* OTP Display */}
-      {otpVisible && order?.delivery_otps?.otp_code && (
+      {otpVisible && order?.delivery_otps?.otp_code && order.shipping_type !== 'wholesale' && (
         <View style={[CARD.base, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8', borderWidth: 1 }]}>
           <Text style={[T.h4, { color: '#9d174d', marginBottom: 4 }]}>Delivery OTP</Text>
           <Text style={[T.bodySmall, { color: '#831843', marginBottom: 12 }]}>
@@ -187,6 +226,110 @@ export function OrderDetailScreen() {
           </Text>
         </View>
       )}
+
+      {/* Wholesale Transporter & LR Details */}
+      {(order.shipping_type === 'wholesale' || order.transporter_name || order.lr_number || order.vehicle_number) && (
+        <View style={[CARD.base, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <Truck size={18} color="#1d4ed8" />
+            <Text style={[T.h4, { color: '#1e40af' }]}>Wholesale Transport & LR Tracking</Text>
+          </View>
+
+          {order.transporter_name ? (
+            <Text style={[T.bodySmall, { color: '#1e3a8a', fontWeight: '700' }]}>
+              Carrier: <Text style={{ fontWeight: '500' }}>{order.transporter_name}</Text>
+            </Text>
+          ) : null}
+
+          {order.vehicle_number ? (
+            <Text style={[T.bodySmall, { color: '#1e3a8a', fontWeight: '700', marginTop: 2 }]}>
+              Vehicle Reg. No: <Text style={{ fontWeight: '800' }}>{order.vehicle_number}</Text>
+            </Text>
+          ) : null}
+
+          {order.lr_number ? (
+            <Text style={[T.bodySmall, { color: '#1e3a8a', fontWeight: '700', marginTop: 2 }]}>
+              Lorry Receipt (LR) No: <Text style={{ fontWeight: '800' }}>{order.lr_number}</Text>
+            </Text>
+          ) : null}
+
+          {order.estimated_delivery_at ? (
+            <Text style={[T.caption, { color: '#2563eb', marginTop: 4 }]}>
+              Estimated Delivery: {new Date(order.estimated_delivery_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Text>
+          ) : null}
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {order.lr_image_url ? (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#dbeafe', padding: 8, borderRadius: R.md }}
+                onPress={() => Linking.openURL(order.lr_image_url!)}
+              >
+                <ExternalLink size={14} color="#1d4ed8" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#1d4ed8' }}>View LR Receipt Photo</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {order.package_image_url ? (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#e0e7ff', padding: 8, borderRadius: R.md }}
+                onPress={() => Linking.openURL(order.package_image_url!)}
+              >
+                <ExternalLink size={14} color="#4338ca" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#4338ca' }}>View Package / Cargo Photo</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {order.pod_image_url ? (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#dcfce7', padding: 8, borderRadius: R.md }}
+                onPress={() => Linking.openURL(order.pod_image_url!)}
+              >
+                <ExternalLink size={14} color="#15803d" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803d' }}>View Signed POD Photo</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      )}
+
+      {/* Download GST Tax Invoice Button */}
+      <TouchableOpacity
+        style={[CARD.base, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8', borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]}
+        onPress={() => {
+          const items = (order.order_items || []).map((i: any) => ({
+            productName: i.product_name || i.product?.name || 'Product',
+            quantity: i.quantity || 1,
+            unitPrice: Number(i.unit_price || i.price || 0),
+            totalPrice: Number(i.quantity || 1) * Number(i.unit_price || i.price || 0),
+          }));
+          const subtotal = items.reduce((acc: number, cur: any) => acc + cur.totalPrice, 0) || order.total_amount;
+
+          generateAndShareTaxInvoice({
+            orderId: order.id,
+            placedAt: order.placed_at,
+            buyerName: order.shipping_address?.recipient_name || 'Customer',
+            shippingAddress: order.shipping_address ? `${order.shipping_address.line1}, ${order.shipping_address.city}, ${order.shipping_address.state} - ${order.shipping_address.postal_code}` : 'Address Provided',
+            sellerBusinessName: 'FabZone Registered Seller Partner',
+            sellerGst: '27AAAAA0000A1Z5',
+            items,
+            subtotal,
+            taxAmount: Math.round(order.total_amount * 0.05),
+            totalAmount: order.total_amount,
+            paymentMethod: order.payment_method || 'online',
+            transporterName: order.transporter_name,
+            vehicleNumber: order.vehicle_number,
+            lrNumber: order.lr_number,
+          });
+        }}
+      >
+        <ClipboardList size={18} color="#c2185b" />
+        <Text style={{ fontSize: 13, fontWeight: '800', color: '#c2185b' }}>📄 Download Official GST Tax Invoice (PDF)</Text>
+      </TouchableOpacity>
+
+
+
+
 
       {/* Cancel action */}
       {canCancel && (
@@ -240,30 +383,39 @@ export function OrderDetailScreen() {
       {/* Items */}
       <View style={CARD.base}>
         <Text style={[T.h4, { marginBottom: S.md }]}>Items Ordered</Text>
-        {order.order_items.map((item, i) => (
-          <View key={item.id} style={[styles.itemRow, i < order.order_items.length - 1 && styles.itemRowBorder]}>
-            <View style={styles.itemRowLeft}>
-              <View style={styles.itemDot} />
-              <Text style={[T.body, { flex: 1 }]} numberOfLines={2}>{item.product.name}</Text>
-            </View>
-            <View style={styles.itemRowRight}>
-              <Text style={[T.caption, { marginHorizontal: S.sm }]}>×{item.quantity}</Text>
-              <Text style={T.h4}>₹{item.total_price.toFixed(0)}</Text>
-            </View>
-            {isDelivered && (
-              <TouchableOpacity
-                style={styles.reviewButton}
-                onPress={() => {
-                  setReviewProductId(item.product.id);
-                  setReviewRating(5);
-                  setReviewComment('');
-                }}
+        {order.order_items.map((item, i) => {
+          // Check if a review already exists for this product in this order
+          const hasReviewed = (order as any).reviews?.some((r: any) => r.product_id === item.product.id);
+          
+          return (
+            <View key={item.id} style={[styles.itemRow, i < order.order_items.length - 1 && styles.itemRowBorder]}>
+              <TouchableOpacity 
+                style={styles.itemRowLeft} 
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ProductDetail', { productId: item.product.id })}
               >
-                <Text style={styles.reviewButtonText}>Write Review</Text>
+                <View style={styles.itemDot} />
+                <Text style={[T.body, { flex: 1, color: C.text }]} numberOfLines={2}>{item.product.name}</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        ))}
+              <View style={styles.itemRowRight}>
+                <Text style={[T.caption, { marginHorizontal: S.sm }]}>×{item.quantity}</Text>
+                <Text style={T.h4}>₹{item.total_price.toFixed(0)}</Text>
+              </View>
+              {['paid', 'delivered', 'shipped', 'out_for_delivery'].includes(order.order_status) && !hasReviewed && (
+                <TouchableOpacity
+                  style={styles.reviewButton}
+                  onPress={() => {
+                    setReviewProductId(item.product.id);
+                    setReviewRating(5);
+                    setReviewComment('');
+                  }}
+                >
+                  <Text style={styles.reviewButtonText}>Write Review</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
       </View>
 
       {/* Review form */}

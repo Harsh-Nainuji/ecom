@@ -6,6 +6,8 @@ import { CartScreen } from '../screens/buyer/CartScreen';
 import { CheckoutScreen } from '../screens/buyer/CheckoutScreen';
 import { OrderDetailScreen } from '../screens/buyer/OrderDetailScreen';
 import { AddressBookScreen } from '../screens/buyer/AddressBookScreen';
+import { TermsScreen } from '../screens/buyer/TermsScreen';
+import { PrivacyConsentScreen } from '../screens/common/PrivacyConsentScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 
@@ -17,6 +19,8 @@ export type BuyerStackParamList = {
   Checkout: undefined;
   OrderDetail: { orderId: string };
   AddressBook: undefined;
+  Terms: undefined;
+  PrivacyConsent: undefined;
   Login: undefined;
   Register: undefined;
 };
@@ -33,8 +37,11 @@ export function BuyerStack() {
       <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Order Details' }} />
       <Stack.Screen name="AddressBook" component={AddressBookScreen} options={{ title: 'Saved Addresses' }} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PrivacyConsent" component={PrivacyConsentScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign In', headerTintColor: '#c2185b' }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account', headerTintColor: '#c2185b' }} />
     </Stack.Navigator>
   );
 }
+

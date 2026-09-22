@@ -13,6 +13,7 @@ import {
 import { openRazorpayCheckout } from '../../lib/razorpay';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Lock, RotateCcw } from 'lucide-react-native';
 import { fetchAddresses, fetchCart, createOrder, createRazorpayOrder, upsertAddress } from '../../lib/api/buyer';
 import type { Address, CartItemWithProduct } from '../../lib/types';
@@ -28,14 +29,17 @@ export function CheckoutScreen() {
   const { session } = useAuth();
   const { refresh } = useCart();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selected, setSelected] = useState<Address | null>(null);
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('online');
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [inlineConsent, setInlineConsent] = useState(false);
   const [addressForm, setAddressForm] = useState({
     recipient_name: '',
     phone: '',
@@ -77,6 +81,10 @@ export function CheckoutScreen() {
       Alert.alert('Missing fields', 'Please fill in recipient name, phone, address line, city, state, and postal code.');
       return;
     }
+    if (!inlineConsent) {
+      Alert.alert('Consent required', 'You must consent to storing this shipping address for order delivery.');
+      return;
+    }
     setSavingAddress(true);
     try {
       const created = await upsertAddress(session.user.id, {
@@ -87,6 +95,7 @@ export function CheckoutScreen() {
       setAddresses(updated);
       setSelected(created);
       setShowAddForm(false);
+      setInlineConsent(false);
       setAddressForm({ recipient_name: '', phone: '', line1: '', city: '', state: '', postal_code: '', label: 'Home' });
       showToast('Shipping address saved!', 'success');
     } catch (err: any) {
@@ -104,38 +113,44 @@ export function CheckoutScreen() {
       return;
     }
 
-    const razorpayKey = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID;
-    if (!razorpayKey) {
-      Alert.alert('Configuration error', 'Missing Razorpay key. Please contact support.');
-      return;
-    }
-
     setPlacing(true);
     try {
-      const intent = await createRazorpayOrder(selected.id, session?.user.id);
+      let confirmation;
+      if (paymentMethod === 'cod') {
+        confirmation = await createOrder({
+          address_id: selected.id,
+          paymentMethod: 'cod',
+          buyer_id: session?.user.id,
+        });
+      } else {
+        const razorpayKey = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_5678';
 
-      const payment = await openRazorpayCheckout({
-        key: razorpayKey,
-        amount: intent.amount,
-        currency: intent.currency,
-        name: 'FabZone',
-        description: 'Secure payment',
-        order_id: intent.order_id,
-        prefill: {
-          name: intent.prefill?.name ?? selected.recipient_name,
-          email: intent.prefill?.email ?? undefined,
-          contact: intent.prefill?.contact ?? selected.phone,
-        },
-        theme: { color: '#111827' },
-      });
+        const intent = await createRazorpayOrder(selected.id, session?.user.id);
 
-      const confirmation = await createOrder({
-        address_id: selected.id,
-        razorpay_order_id: payment.razorpay_order_id,
-        razorpay_payment_id: payment.razorpay_payment_id,
-        razorpay_signature: payment.razorpay_signature,
-        buyer_id: session?.user.id,
-      });
+        const payment = await openRazorpayCheckout({
+          key: razorpayKey,
+          amount: intent.amount,
+          currency: intent.currency,
+          name: 'FabZone',
+          description: 'Secure payment',
+          order_id: intent.order_id,
+          prefill: {
+            name: intent.prefill?.name ?? selected.recipient_name,
+            email: intent.prefill?.email ?? undefined,
+            contact: intent.prefill?.contact ?? selected.phone,
+          },
+          theme: { color: '#111827' },
+        });
+
+        confirmation = await createOrder({
+          address_id: selected.id,
+          razorpay_order_id: payment.razorpay_order_id,
+          razorpay_payment_id: payment.razorpay_payment_id,
+          razorpay_signature: payment.razorpay_signature,
+          paymentMethod: 'online',
+          buyer_id: session?.user.id,
+        });
+      }
 
       await refresh();
       showToast('Order placed successfully!', 'success');
@@ -156,12 +171,16 @@ export function CheckoutScreen() {
       } else {
         navigation.replace('OrderDetail', { orderId: confirmation.order_id });
       }
-    } catch (error) {
-      const description = (error as { description?: string })?.description;
+    } catch (error: any) {
+      const description = error?.description;
+      const message = error?.message || 'Something went wrong.';
+
       if (description) {
         Alert.alert('Payment cancelled', description);
+      } else if (message.includes('Network request failed') || message.includes('fetch')) {
+        Alert.alert('Connection Error', 'Unable to connect. Please check your internet connection and API configuration and try again.');
       } else {
-        Alert.alert('Checkout failed', (error as Error)?.message ?? 'Something went wrong.');
+        Alert.alert('Checkout failed', message);
       }
     } finally {
       setPlacing(false);
@@ -186,7 +205,7 @@ export function CheckoutScreen() {
     );
   }
 
-  const delivery = subtotal >= 499 ? 0 : 49;
+  const delivery = 0;
   const total = subtotal + delivery;
 
   if (loading) {
@@ -266,16 +285,38 @@ export function CheckoutScreen() {
                   onChangeText={(val) => setAddressForm((f) => ({ ...f, postal_code: val }))}
                 />
 
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: S.sm, paddingHorizontal: 2 }}
+                  onPress={() => setInlineConsent(!inlineConsent)}
+                  activeOpacity={0.8}
+                >
+                  <View style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: R.sm,
+                    borderWidth: 2,
+                    borderColor: inlineConsent ? C.rose : C.border,
+                    backgroundColor: inlineConsent ? C.rose : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {inlineConsent && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>}
+                  </View>
+                  <Text style={{ flex: 1, ...T.bodySmall, color: C.text2 }}>
+                    I consent to storing this shipping address for order delivery.
+                  </Text>
+                </TouchableOpacity>
+
                 <View style={{ flexDirection: 'row', gap: S.sm }}>
                   {addresses.length > 0 && (
-                    <TouchableOpacity style={[BTN.secondary, { flex: 1 }]} onPress={() => setShowAddForm(false)}>
+                    <TouchableOpacity style={[BTN.secondary, { flex: 1 }]} onPress={() => { setShowAddForm(false); setInlineConsent(false); }}>
                       <Text style={BTN.secondaryText}>Cancel</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
-                    style={[BTN.primary, { flex: 1 }, savingAddress && BTN.disabled]}
+                    style={[BTN.primary, { flex: 1 }, (savingAddress || !inlineConsent) && BTN.disabled]}
                     onPress={handleSaveInlineAddress}
-                    disabled={savingAddress}
+                    disabled={savingAddress || !inlineConsent}
                   >
                     {savingAddress ? <ActivityIndicator color="#fff" /> : <Text style={BTN.primaryText}>Save & Deliver Here</Text>}
                   </TouchableOpacity>
@@ -316,16 +357,67 @@ export function CheckoutScreen() {
             </View>
           ) : null
         }
+        ListFooterComponent={
+          cartItems.length > 0 ? (
+            <View style={styles.itemsSection}>
+              <Text style={[styles.sectionTitle, { marginTop: S.md, marginBottom: S.sm }]}>Order Items</Text>
+              {cartItems.map((item) => {
+                const prod = item.product_variant?.product;
+                const variant = item.product_variant;
+                const sellerName = (prod as any)?.seller?.business_name || 'Official Merchant';
+                
+                return (
+                  <View key={item.id} style={styles.itemCard}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.itemName} numberOfLines={2}>{prod?.name}</Text>
+                      {variant?.color || variant?.size ? (
+                        <Text style={styles.itemMeta}>
+                          {variant?.size ? `Size: ${variant.size}` : ''}
+                          {variant?.size && variant?.color ? ' | ' : ''}
+                          {variant?.color ? `Color: ${variant.color}` : ''}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.itemSeller}>Seller: {sellerName}</Text>
+                      <Text style={styles.itemTimeframe}>Estimated delivery: 3-5 business days</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 70 }}>
+                      <Text style={styles.itemPrice}>₹{((prod?.price ?? 0) * item.quantity).toFixed(0)}</Text>
+                      <Text style={styles.itemQty}>Qty: {item.quantity}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null
+        }
       />
 
-      <View style={styles.summary}>
+      <View style={[styles.summary, { paddingBottom: Math.max(insets.bottom, S.lg) }]}>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: S.xs }}>Payment Method</Text>
+        <View style={{ flexDirection: 'row', gap: S.sm, marginBottom: S.sm }}>
+          <TouchableOpacity
+            style={[{ flex: 1, paddingVertical: 12, borderRadius: R.md, borderWidth: 1, alignItems: 'center', borderColor: '#E5E7EB', backgroundColor: '#FFF' }, paymentMethod === 'online' && { borderColor: C.rose, backgroundColor: C.card2 }]}
+            onPress={() => setPaymentMethod('online')}
+            activeOpacity={0.8}
+          >
+            <Text style={[{ fontSize: 13, fontWeight: '600', color: '#4B5563' }, paymentMethod === 'online' && { color: C.rose, fontWeight: '700' }]}>Online Payment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[{ flex: 1, paddingVertical: 12, borderRadius: R.md, borderWidth: 1, alignItems: 'center', borderColor: '#E5E7EB', backgroundColor: '#FFF' }, paymentMethod === 'cod' && { borderColor: C.rose, backgroundColor: C.card2 }]}
+            onPress={() => setPaymentMethod('cod')}
+            activeOpacity={0.8}
+          >
+            <Text style={[{ fontSize: 13, fontWeight: '600', color: '#4B5563' }, paymentMethod === 'cod' && { color: C.rose, fontWeight: '700' }]}>Cash on Delivery</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryAmt}>₹{subtotal.toFixed(0)}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery</Text><Text style={delivery === 0 ? styles.summaryFree : styles.summaryAmt}>{delivery === 0 ? 'FREE' : `₹${delivery}`}</Text></View>
         <View style={[styles.summaryRow, styles.summaryTotal]}><Text style={styles.totalLabel}>Total</Text><Text style={styles.totalAmt}>₹{total.toFixed(0)}</Text></View>
         <View style={styles.trustRow}>
           <View style={styles.trustItem}>
             <Lock size={12} color={C.muted} strokeWidth={2} />
-            <Text style={styles.trustText}>Secured by Razorpay</Text>
+            <Text style={styles.trustText}>{paymentMethod === 'cod' ? 'Secure Checkout' : 'Secured by Razorpay'}</Text>
           </View>
           <View style={styles.trustItem}>
             <RotateCcw size={12} color={C.muted} strokeWidth={2} />
@@ -338,7 +430,7 @@ export function CheckoutScreen() {
           onPress={handlePlaceOrder}
           activeOpacity={0.9}
         >
-          {placing ? <ActivityIndicator color="#fff" /> : <Text style={styles.orderText}>Pay ₹{total.toFixed(0)} · Place Order</Text>}
+          {placing ? <ActivityIndicator color="#fff" /> : <Text style={styles.orderText}>{paymentMethod === 'cod' ? `Place Order (COD) · ₹${total.toFixed(0)}` : `Pay ₹${total.toFixed(0)} · Place Order`}</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -377,5 +469,13 @@ const styles = StyleSheet.create({
   orderButton: { ...BTN.primary, marginTop: S.xs },
   orderButtonDisabled: { ...BTN.primary, ...BTN.disabled },
   orderText: { ...BTN.primaryText },
+  itemsSection: { marginTop: S.md, borderTopWidth: 1, borderTopColor: C.border, paddingTop: S.md, gap: S.xs },
+  itemCard: { flexDirection: 'row', justifyContent: 'space-between', padding: S.md, borderRadius: R.md, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, marginBottom: S.xs },
+  itemName: { ...T.h4, color: C.text },
+  itemMeta: { ...T.caption, color: C.muted },
+  itemSeller: { ...T.caption, color: C.rose, fontWeight: '700' },
+  itemTimeframe: { fontSize: 11, color: C.success, fontWeight: '600' },
+  itemPrice: { ...T.h4, color: C.text, fontWeight: '700' },
+  itemQty: { ...T.caption, color: C.muted },
 });
 

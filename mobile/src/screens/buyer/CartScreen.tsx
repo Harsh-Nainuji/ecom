@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ShoppingCart, Minus, Plus } from 'lucide-react-native';
@@ -19,9 +20,11 @@ export function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
   const { items, loading, refresh, setQuantity, remove } = useCart();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
   const handleSetQuantity = async (variantId: string, currentQty: number, nextQty: number, maxStock: number) => {
+    if (nextQty === currentQty || nextQty < 1) return;
     if (nextQty > currentQty && nextQty > maxStock) {
       showToast(`Cannot add more. Available stock is ${maxStock}!`, 'warning');
       return;
@@ -115,7 +118,11 @@ export function CartScreen() {
             : item.product_variant?.size ?? item.product_variant?.color ?? '';
           const imageUrl = pickPrimaryImage(item.product_variant?.product);
           return (
-            <View style={[styles.card, (isOos || isOverStock) && { borderColor: '#fca5a5', backgroundColor: '#fff5f5' }]}>
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('ProductDetail', { productId: item.product_variant?.product?.id || '' })}
+              style={[styles.card, (isOos || isOverStock) && { borderColor: '#fca5a5', backgroundColor: '#fff5f5' }]}
+            >
               {imageUrl ? (
                 <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
               ) : (
@@ -157,19 +164,19 @@ export function CartScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
 
-      <View style={styles.summary}>
+      <View style={[styles.summary, { paddingBottom: Math.max(insets.bottom, S.lg) }]}>
         <View style={styles.rowBetween}>
           <Text style={styles.summaryLabel}>Subtotal ({items.length} items)</Text>
           <Text style={styles.summaryValue}>₹{subtotal.toFixed(0)}</Text>
         </View>
         <View style={styles.rowBetween}>
           <Text style={styles.summaryLabel}>Delivery</Text>
-          <Text style={styles.freeDelivery}>{subtotal >= 499 ? 'FREE' : `₹${49}`}</Text>
+          <Text style={styles.freeDelivery}>FREE</Text>
         </View>
         <TouchableOpacity
           style={[styles.checkoutButton, (isEmpty || loading || hasStockIssue) && styles.checkoutButtonDisabled]}

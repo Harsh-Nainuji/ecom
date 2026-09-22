@@ -611,6 +611,16 @@ create policy "Buyers read their OTP"
     )
   );
 
+create policy "Delivery partners read OTP"
+  on public.delivery_otps
+  for select
+  using (
+    exists (
+      select 1 from public.orders o
+      where o.id = order_id and o.delivery_partner_id = auth.uid()
+    )
+  );
+
 create policy "Delivery partners update OTP state"
   on public.delivery_otps
   for update

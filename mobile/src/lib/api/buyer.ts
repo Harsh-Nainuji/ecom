@@ -12,7 +12,7 @@ import type {
   RazorpayOrderIntent,
 } from '../types';
 
-const FEATURED_LIMIT = 8;
+const FEATURED_LIMIT = 100;
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
@@ -94,8 +94,9 @@ export async function fetchFeaturedProducts() {
   const { data, error } = await supabase
     .from('products')
     .select('*, product_images(*), product_variants(*)')
-    .eq('status', 'active')
+    .or('status.eq.active,status.is.null')
     .order('sponsored_until', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
     .limit(FEATURED_LIMIT);
 
   if (error) throw new Error(error.message);
@@ -104,10 +105,17 @@ export async function fetchFeaturedProducts() {
 }
 
 export async function fetchCategories() {
-  const { data, error } = await supabase.from('categories').select('*').order('name');
-  if (error) throw new Error(error.message);
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('display_order', { ascending: true });
+  if (error) {
+    console.warn('fetchCategories warning', error.message);
+    return [];
+  }
   return data as Category[];
 }
+
 
 export async function fetchHomeBanners() {
   const { data, error } = await supabase
@@ -266,7 +274,7 @@ export async function fetchCart(buyerId: string) {
 
   const { data, error } = await supabase
     .from('cart_items')
-    .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*)))')
+    .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*), seller:profiles(id, business_name)))')
     .eq('buyer_id', buyerId);
 
   if (!error && data) {
@@ -280,7 +288,7 @@ export async function fetchCart(buyerId: string) {
           // 1. Check product_variants by id = item.variant_id
           const { data: vRecord } = await supabase
             .from('product_variants')
-            .select('*, product:products(*, product_images(*))')
+            .select('*, product:products(*, product_images(*), seller:profiles(id, business_name))')
             .eq('id', item.variant_id)
             .maybeSingle();
 
@@ -291,7 +299,7 @@ export async function fetchCart(buyerId: string) {
             // 2. Check product_variants by product_id = item.variant_id
             const { data: vByProd } = await supabase
               .from('product_variants')
-              .select('*, product:products(*, product_images(*))')
+              .select('*, product:products(*, product_images(*), seller:profiles(id, business_name))')
               .eq('product_id', item.variant_id)
               .maybeSingle();
 
@@ -302,7 +310,7 @@ export async function fetchCart(buyerId: string) {
               // 3. Check products directly by id = item.variant_id
               const { data: directProd } = await supabase
                 .from('products')
-                .select('*, product_images(*)')
+                .select('*, product_images(*), seller:profiles(id, business_name)')
                 .eq('id', item.variant_id)
                 .maybeSingle();
 
@@ -466,7 +474,7 @@ export async function fetchOrders(buyerId: string) {
 export async function fetchOrderDetail(buyerId: string, id: string) {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*, product:products(*), variant:product_variants(*)), delivery_otps(*)')
+    .select('*, order_items(*, product:products(*), variant:product_variants(*)), delivery_otps(*), reviews(id, product_id)')
     .eq('id', id)
     .eq('buyer_id', buyerId)
     .single();
@@ -491,11 +499,16 @@ export async function createRazorpayOrder(addressId: string, buyerId?: string) {
   if (!user || user === 'null' || user === 'undefined') {
     throw new Error('You must be signed in to place an order.');
   }
-  const res = await fetch(`${getApiBaseUrl()}/api/orders/razorpay`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ buyerId: user, addressId }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBaseUrl()}/api/orders/razorpay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerId: user, addressId }),
+    });
+  } catch (error: any) {
+    throw new Error('Network request failed. Please check your internet connection.');
+  }
 
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));
@@ -507,9 +520,10 @@ export async function createRazorpayOrder(addressId: string, buyerId?: string) {
 
 export async function createOrder(payload: {
   address_id: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
+  razorpay_order_id?: string | null;
+  razorpay_payment_id?: string | null;
+  razorpay_signature?: string | null;
+  paymentMethod?: 'cod' | 'online';
   buyer_id?: string;
 }) {
   const user = payload.buyer_id ?? (await supabase.auth.getUser()).data.user?.id;
@@ -519,20 +533,27 @@ export async function createOrder(payload: {
   if (!user || user === 'null' || user === 'undefined') {
     throw new Error('You must be signed in to place an order.');
   }
-  if (!payload.razorpay_order_id || !payload.razorpay_payment_id || !payload.razorpay_signature) {
+  const paymentMethod = payload.paymentMethod ?? 'online';
+  if (paymentMethod === 'online' && (!payload.razorpay_order_id || !payload.razorpay_payment_id || !payload.razorpay_signature)) {
     throw new Error('Payment confirmation data is missing. Please retry the payment.');
   }
-  const res = await fetch(`${getApiBaseUrl()}/api/orders/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      buyerId: user,
-      addressId: payload.address_id,
-      razorpay_order_id: payload.razorpay_order_id,
-      razorpay_payment_id: payload.razorpay_payment_id,
-      razorpay_signature: payload.razorpay_signature,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBaseUrl()}/api/orders/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        buyerId: user,
+        addressId: payload.address_id,
+        razorpay_order_id: payload.razorpay_order_id,
+        razorpay_payment_id: payload.razorpay_payment_id,
+        razorpay_signature: payload.razorpay_signature,
+        paymentMethod: paymentMethod,
+      }),
+    });
+  } catch (error: any) {
+    throw new Error('Network request failed. Please check your internet connection.');
+  }
 
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));

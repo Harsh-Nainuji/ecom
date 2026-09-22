@@ -50,6 +50,7 @@ export async function POST(request: Request) {
           .update({
             payment_status: 'paid',
             order_status: 'paid',
+            payment_confirmed_at: new Date().toISOString(),
             razorpay_payment_id: razorpayPaymentId,
             updated_at: new Date().toISOString(),
           })

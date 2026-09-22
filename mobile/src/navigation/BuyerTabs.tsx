@@ -5,12 +5,14 @@ import { TouchableOpacity, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, ClipboardList, User, ShoppingCart } from 'lucide-react-native';
 import { BuyerHomeScreen } from '../screens/buyer/BuyerHomeScreen';
+import { CartScreen } from '../screens/buyer/CartScreen';
 import { BuyerOrdersScreen } from '../screens/buyer/BuyerOrdersScreen';
 import { BuyerProfileScreen } from '../screens/buyer/BuyerProfileScreen';
 import type { BuyerStackParamList } from './BuyerStack';
 
 export type BuyerTabParamList = {
   BuyerHome: undefined;
+  BuyerCart: undefined;
   BuyerOrders: undefined;
   BuyerProfile: undefined;
 };
@@ -23,7 +25,9 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const strokeWidth = 2;
 
   let IconComponent = Home;
-  if (label === 'Orders') {
+  if (label === 'Cart') {
+    IconComponent = ShoppingCart;
+  } else if (label === 'Orders') {
     IconComponent = ClipboardList;
   } else if (label === 'Profile') {
     IconComponent = User;
@@ -75,27 +79,15 @@ export function BuyerTabs() {
           title: 'FabZone',
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon label="Home" focused={focused} />,
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Cart')}
-              style={{
-                marginRight: 16,
-                backgroundColor: '#FDE8EC',
-                borderRadius: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderWidth: 1,
-                borderColor: '#F5A5B0',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-              activeOpacity={0.8}
-            >
-              <ShoppingCart size={15} color="#c2185b" strokeWidth={2.2} />
-              <Text style={{ fontWeight: '700', color: '#c2185b', fontSize: 13 }}>Cart</Text>
-            </TouchableOpacity>
-          ),
+        }}
+      />
+      <Tab.Screen
+        name="BuyerCart"
+        component={CartScreen}
+        options={{
+          title: 'My Cart',
+          tabBarLabel: 'Cart',
+          tabBarIcon: ({ focused }) => <TabIcon label="Cart" focused={focused} />,
         }}
       />
       <Tab.Screen

@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from('cart_items')
-      .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*)))')
+      .select('id, buyer_id, quantity, variant_id, product_variant:product_variants(*, product:products(*, product_images(*), seller:profiles(id, business_name)))')
       .eq('buyer_id', buyerId);
 
     if (error) {
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         if (!productObj && item.variant_id) {
           const { data: vRecord } = await supabaseAdmin
             .from('product_variants')
-            .select('*, product:products(*, product_images(*))')
+            .select('*, product:products(*, product_images(*), seller:profiles(id, business_name))')
             .eq('id', item.variant_id)
             .maybeSingle();
 
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           } else {
             const { data: vByProd } = await supabaseAdmin
               .from('product_variants')
-              .select('*, product:products(*, product_images(*))')
+              .select('*, product:products(*, product_images(*), seller:profiles(id, business_name))')
               .eq('product_id', item.variant_id)
               .maybeSingle();
 
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
             } else {
               const { data: directProd } = await supabaseAdmin
                 .from('products')
-                .select('*, product_images(*)')
+                .select('*, product_images(*), seller:profiles(id, business_name)')
                 .eq('id', item.variant_id)
                 .maybeSingle();
 

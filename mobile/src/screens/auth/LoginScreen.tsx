@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { C, S, R, BTN, T } from '../../lib/theme';
@@ -16,16 +16,20 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
   const [submitting, setSubmitting] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passFocused, setPassFocused] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   async function handleSubmit() {
     if (submitting) return;
+    setAuthError(null);
     if (!email.trim() || !password) {
-      Alert.alert('Validation Error', 'Email and password are required.');
+      setAuthError('Email and password are required.');
       return;
     }
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
+    } catch (err: any) {
+      setAuthError(err.message || 'Incorrect password or email. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -66,6 +70,12 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
         </View>
 
         <View style={styles.card}>
+          {authError && (
+            <View style={styles.errorCallout}>
+              <AlertCircle size={18} color="#b91c1c" strokeWidth={2} />
+              <Text style={styles.errorText}>{authError}</Text>
+            </View>
+          )}
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -127,8 +137,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackPara
 
         <Text style={styles.legal}>
           By continuing you agree to our{' '}
-          <Text style={{ color: C.rose }}>Terms</Text> &{' '}
-          <Text style={{ color: C.rose }}>Privacy Policy</Text>
+          <Text style={{ color: C.rose }} onPress={() => navigation.navigate('Terms' as never)}>Terms & Privacy Policy</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -153,6 +162,22 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
+  },
+  errorCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.xs,
+    backgroundColor: '#fef2f2',
+    borderColor: '#fca5a5',
+    borderWidth: 1,
+    borderRadius: R.md,
+    padding: S.sm,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#991b1b',
+    fontWeight: '600',
   },
   field: { gap: S.xs },
   label: { ...T.label, color: C.text2, fontSize: 13 },

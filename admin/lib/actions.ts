@@ -11,10 +11,24 @@ export async function listBuyers() {
     .eq('role', 'buyer')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
+
+  const authUsersMap: Record<string, string> = {};
+  try {
+    const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    if (authData?.users) {
+      authData.users.forEach((u: any) => {
+        if (u.email) authUsersMap[u.id] = u.email;
+      });
+    }
+  } catch (err) {
+    console.warn('Could not fetch auth users for emails', err);
+  }
+
   return (data ?? []).map((row: any) => ({
     id: row.id,
     fullName: row.full_name ?? '—',
     phone: row.phone ?? '—',
+    email: authUsersMap[row.id] || '—',
     isBlocked: row.is_blocked ?? false,
     orderCount: Array.isArray(row.orders) ? (row.orders[0]?.count ?? 0) : 0,
     createdAt: row.created_at,
@@ -26,11 +40,25 @@ export async function listSellers() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id, full_name, phone, is_blocked, created_at, seller_profiles:seller_profiles!seller_profiles_id_fkey(business_name, mobile, email, gst_number, status, rejected_reason), products:products!products_seller_id_fkey(count)',
+      'id, full_name, phone, is_blocked, created_at, seller_profiles:seller_profiles!seller_profiles_id_fkey(business_name, mobile, email, gst_number, pan_number, business_address, bank_account_number, bank_ifsc, bank_account_name, status, rejected_reason), products:products!products_seller_id_fkey(count)',
     )
     .eq('role', 'seller')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
+
+  const authUsersMap: Record<string, string> = {};
+  try {
+    const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    if (authData?.users) {
+      authData.users.forEach((u: any) => {
+        if (u.email) authUsersMap[u.id] = u.email;
+      });
+    }
+  } catch (err) {
+    console.warn('Could not fetch auth users for emails', err);
+  }
+
+
   return (data ?? []).map((row: any) => {
     const sp = Array.isArray(row.seller_profiles) ? row.seller_profiles[0] : row.seller_profiles;
     return {
@@ -38,9 +66,14 @@ export async function listSellers() {
       fullName: row.full_name ?? '—',
       phone: row.phone ?? '—',
       businessName: sp?.business_name ?? '—',
-      mobile: sp?.mobile ?? '—',
-      email: sp?.email ?? '—',
+      mobile: sp?.mobile || row.phone || '—',
+      email: sp?.email || authUsersMap[row.id] || '—',
       gst: sp?.gst_number ?? '—',
+      pan: sp?.pan_number ?? '—',
+      address: sp?.business_address ?? '—',
+      bankAccount: sp?.bank_account_number ?? '—',
+      bankIfsc: sp?.bank_ifsc ?? '—',
+      bankName: sp?.bank_account_name ?? '—',
       status: sp?.status ?? 'pending',
       rejectedReason: sp?.rejected_reason ?? null,
       isBlocked: row.is_blocked ?? false,
@@ -49,6 +82,7 @@ export async function listSellers() {
     };
   });
 }
+
 
 export async function approveSeller(id: string) {
   const supabase = getSupabaseAdmin();
@@ -74,6 +108,17 @@ export async function suspendSeller(id: string) {
   revalidatePath('/sellers');
 }
 
+export async function toggleUserBlock(userId: string, isBlocked: boolean) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_blocked: isBlocked })
+    .eq('id', userId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/buyers');
+  revalidatePath('/sellers');
+}
+
 export async function listProducts() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -95,39 +140,258 @@ export async function listProducts() {
 export async function deleteProduct(id: string) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) {
-    const isFkeyViolation = error.code === '23503' || 
-                            error.message.toLowerCase().includes('foreign key') || 
-                            error.message.toLowerCase().includes('violates');
-    if (isFkeyViolation) {
-      // Fallback: Soft-delete by setting status to 'inactive' so historical order logs remain intact
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ status: 'inactive' })
-        .eq('id', id);
-      if (updateError) throw new Error(updateError.message);
-    } else {
-      throw new Error(error.message);
-    }
-  }
+  if (error) throw new Error(error.message);
   revalidatePath('/products');
+}
+
+export async function listOrders() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      id, total_amount, order_status, placed_at, payment_method, payment_confirmed_at,
+      shipping_type, transporter_name, vehicle_number, lr_number, lr_image_url, package_image_url, pod_image_url, estimated_delivery_at,
+      buyer:profiles!orders_buyer_id_fkey(full_name),
+      seller:profiles!orders_seller_id_fkey(full_name, seller_profiles(business_name))
+    `)
+    .order('placed_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: any) => {
+    const sp = Array.isArray(row.seller?.seller_profiles) ? row.seller?.seller_profiles[0] : row.seller?.seller_profiles;
+    return {
+      id: row.id,
+      amount: Number(row.total_amount ?? 0),
+      status: row.order_status,
+      placedAt: row.placed_at,
+      paymentMethod: row.payment_method || 'online',
+      paymentConfirmedAt: row.payment_confirmed_at,
+      shippingType: row.shipping_type || 'retail',
+      transporterName: row.transporter_name,
+      vehicleNumber: row.vehicle_number,
+      lrNumber: row.lr_number,
+      lrImageUrl: row.lr_image_url,
+      packageImageUrl: row.package_image_url,
+      podImageUrl: row.pod_image_url,
+      estimatedDeliveryAt: row.estimated_delivery_at,
+      buyerName: row.buyer?.full_name ?? 'Customer',
+      sellerName: sp?.business_name || row.seller?.full_name || 'Seller',
+    };
+  });
+}
+
+export async function updateOrderWholesaleDetails(
+  orderId: string,
+  details: {
+    order_status?: string;
+    shipping_type?: 'retail' | 'wholesale';
+    transporter_name?: string;
+    vehicle_number?: string;
+    lr_number?: string;
+    lr_image_url?: string;
+    package_image_url?: string;
+    pod_image_url?: string;
+    estimated_delivery_at?: string;
+  }
+) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      ...details,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orderId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/orders');
+  revalidatePath('/deliveries');
+}
+
+export async function listDeliveries() {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        id, order_status, delivery_status, total_amount, placed_at, shipping_address,
+        shipping_type, transporter_name, vehicle_number, lr_number, lr_image_url, package_image_url, pod_image_url, estimated_delivery_at,
+        delivery_partner:delivery_partners(id, name, phone)
+      `)
+      .order('placed_at', { ascending: false });
+
+    if (error) {
+      console.warn('listDeliveries warning:', error.message);
+      const { data: simpleData } = await supabase
+        .from('orders')
+        .select('*')
+        .order('placed_at', { ascending: false });
+
+      return (simpleData ?? []).map((row: any) => ({
+        id: row.id,
+        orderStatus: row.order_status,
+        deliveryStatus: row.delivery_status || 'unassigned',
+        totalAmount: Number(row.total_amount ?? 0),
+        placedAt: row.placed_at,
+        address: row.shipping_address,
+        shippingType: row.shipping_type || 'retail',
+        transporterName: row.transporter_name,
+        vehicleNumber: row.vehicle_number,
+        lrNumber: row.lr_number,
+        lrImageUrl: row.lr_image_url,
+        packageImageUrl: row.package_image_url,
+        podImageUrl: row.pod_image_url,
+        estimatedDeliveryAt: row.estimated_delivery_at,
+        assignedPartner: null,
+      }));
+    }
+
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      orderStatus: row.order_status,
+      deliveryStatus: row.delivery_status || 'unassigned',
+      totalAmount: Number(row.total_amount ?? 0),
+      placedAt: row.placed_at,
+      address: row.shipping_address,
+      shippingType: row.shipping_type || 'retail',
+      transporterName: row.transporter_name,
+      vehicleNumber: row.vehicle_number,
+      lrNumber: row.lr_number,
+      lrImageUrl: row.lr_image_url,
+      packageImageUrl: row.package_image_url,
+      podImageUrl: row.pod_image_url,
+      estimatedDeliveryAt: row.estimated_delivery_at,
+      assignedPartner: row.delivery_partner ? {
+        id: row.delivery_partner.id,
+        name: row.delivery_partner.name,
+        phone: row.delivery_partner.phone,
+      } : null,
+    }));
+  } catch (err: any) {
+    console.error('listDeliveries error:', err);
+    return [];
+  }
+}
+
+export async function listDeliveryPartners() {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data, error } = await supabase
+      .from('delivery_partners')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('listDeliveryPartners warning:', error.message);
+      return [];
+    }
+    return data ?? [];
+  } catch (err: any) {
+    console.error('listDeliveryPartners error:', err);
+    return [];
+  }
+}
+
+
+export async function createDeliveryPartner(
+  input: FormData | { fullName?: string; name?: string; email?: string; phone?: string; vehicleDetails?: string; vehicle_type?: string }
+) {
+  const supabase = getSupabaseAdmin();
+  let name = '';
+  let phone = '';
+  let vehicle = '';
+
+  if (input instanceof FormData) {
+    name = String(input.get('name') ?? input.get('fullName') ?? '');
+    phone = String(input.get('phone') ?? '');
+    vehicle = String(input.get('vehicle') ?? input.get('vehicleDetails') ?? '');
+  } else {
+    name = input.fullName || input.name || '';
+    phone = input.phone || '';
+    vehicle = input.vehicleDetails || input.vehicle_type || '';
+  }
+
+  const { data, error } = await supabase
+    .from('delivery_partners')
+    .insert({
+      name,
+      phone,
+      vehicle_type: vehicle,
+      status: 'active',
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
+  return {
+    email: `${phone}@partner.fabzone.internal`,
+    tempPassword: 'Partner@123',
+    code: data?.id ? data.id.slice(0, 8).toUpperCase() : 'AGENT',
+  };
+}
+
+export async function blockDeliveryPartner(id: string, isBlocked: boolean) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('delivery_partners')
+    .update({ status: isBlocked ? 'blocked' : 'active' })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
+}
+
+export async function deleteDeliveryPartner(id: string) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('delivery_partners').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
+}
+
+export async function updateDeliveryPartnerStatus(id: string, status: string) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('delivery_partners')
+    .update({ status })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
+}
+
+export async function assignDeliveryPartner(orderId: string, partnerId: string | null) {
+  const supabase = getSupabaseAdmin();
+  const deliveryStatus = partnerId ? 'assigned' : 'unassigned';
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      delivery_partner_id: partnerId || null,
+      delivery_status: deliveryStatus,
+    })
+    .eq('id', orderId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/deliveries');
 }
 
 export async function listReviews() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('reviews')
-    .select('id, rating, comment, is_reported, created_at, product:products(name), buyer:profiles!reviews_buyer_id_fkey(full_name)')
+    .select(`
+      id, rating, comment, is_reported, created_at,
+      product:products(name),
+      buyer:profiles!reviews_buyer_id_fkey(full_name)
+    `)
     .order('created_at', { ascending: false });
+
   if (error) throw new Error(error.message);
   return (data ?? []).map((row: any) => ({
     id: row.id,
-    rating: row.rating,
+    rating: row.rating ?? 5,
     comment: row.comment ?? '',
     isReported: row.is_reported ?? false,
-    productName: row.product?.name ?? '—',
-    buyerName: row.buyer?.full_name ?? '—',
     createdAt: row.created_at,
+    productName: row.product?.name ?? 'Product',
+    buyerName: row.buyer?.full_name ?? 'Buyer',
   }));
 }
 
@@ -138,281 +402,14 @@ export async function deleteReview(id: string) {
   revalidatePath('/reviews');
 }
 
-export async function toggleUserBlock(id: string, blocked: boolean) {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from('profiles').update({ is_blocked: blocked }).eq('id', id);
-  if (error) throw new Error(error.message);
-  revalidatePath('/buyers');
-  revalidatePath('/sellers');
-}
-
-export async function getCommissionSettings() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('commission_settings')
-    .select('commission_percent, commission_mode')
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  
-  if (error) {
-    // Graceful fallback if commission_mode column does not exist in schema cache
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('commission_settings')
-      .select('commission_percent')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (fallbackError) throw new Error(fallbackError.message);
-    return {
-      commission_percent: fallbackData ? Number(fallbackData.commission_percent) : 5.00,
-      commission_mode: 'flat' as const,
-    };
-  }
-
-  return {
-    commission_percent: data ? Number(data.commission_percent) : 5.00,
-    commission_mode: data?.commission_mode ? (data.commission_mode as 'flat' | 'tiered') : 'flat',
-  };
-}
-
-export async function getCommissionPercent() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('commission_settings')
-    .select('commission_percent')
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? Number(data.commission_percent) : 5.00;
-}
-
-export async function updateCommissionPercent(percent: number) {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase
-    .from('commission_settings')
-    .insert({
-      commission_percent: percent
-    });
-  if (error) throw new Error(error.message);
-  revalidatePath('/');
-  revalidatePath('/revenue');
-}
-
-export async function getSponsoredListings() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('sponsored_listings')
-    .select('*, product:products(name, price, seller:profiles!products_seller_id_fkey(full_name))')
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    packageName: row.package_name,
-    startsAt: row.starts_at,
-    endsAt: row.ends_at,
-    productName: row.product?.name ?? '—',
-    price: Number(row.product?.price ?? 0),
-    sellerName: row.product?.seller?.full_name ?? '—',
-    createdAt: row.created_at,
-  }));
-}
-
-export async function createSponsoredListing(productId: string, packageName: string, days: number) {
-  const supabase = getSupabaseAdmin();
-  const startsAt = new Date();
-  const endsAt = new Date();
-  endsAt.setDate(endsAt.getDate() + days);
-
-  const { error: insertError } = await supabase
-    .from('sponsored_listings')
-    .insert({
-      product_id: productId,
-      package_name: packageName,
-      starts_at: startsAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-    });
-  if (insertError) throw new Error(insertError.message);
-
-  const { error: productError } = await supabase
-    .from('products')
-    .update({ sponsored_until: endsAt.toISOString() })
-    .eq('id', productId);
-  if (productError) throw new Error(productError.message);
-
-  revalidatePath('/revenue');
-}
-
-export async function listOrders() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, placed_at, total_amount, payment_status, order_status, buyer:profiles!orders_buyer_id_fkey(full_name), seller:profiles!orders_seller_id_fkey(full_name)')
-    .order('placed_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    buyerName: row.buyer?.full_name ?? '—',
-    sellerName: row.seller?.full_name ?? '—',
-    amount: Number(row.total_amount ?? 0),
-    paymentStatus: row.payment_status,
-    status: row.order_status,
-    placedAt: row.placed_at,
-  }));
-}
-
-export async function listDeliveries() {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, placed_at, order_status, delivery_status, delivery_partner:profiles!orders_delivery_partner_id_fkey(id, full_name), shipping_address')
-    .not('delivery_status', 'is', null)
-    .order('placed_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    deliveryPartnerId: row.delivery_partner?.id ?? null,
-    deliveryPartnerName: row.delivery_partner?.full_name ?? 'Not Assigned',
-    address: row.shipping_address,
-    orderStatus: row.order_status,
-    deliveryStatus: row.delivery_status ?? 'pending',
-    placedAt: row.placed_at,
-  }));
-}
-
-export async function listDeliveryPartners() {
-  const supabase = getSupabaseAdmin();
-  let response = await supabase
-    .from('profiles')
-    .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status, account_status)')
-    .eq('role', 'delivery')
-    .order('created_at', { ascending: false });
-
-  if (response.error) {
-    const msg = response.error.message.toLowerCase();
-    if (msg.includes('column') && msg.includes('account_status')) {
-      // Fallback: query without the account_status column until the migration is applied
-      response = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, is_blocked, created_at, delivery_accounts(code, phone, vehicle_details, status)')
-        .eq('role', 'delivery')
-        .order('created_at', { ascending: false });
-    }
-  }
-
-  if (response.error) throw new Error(response.error.message);
-  
-  return (response.data ?? []).map((row: any) => {
-    const da = Array.isArray(row.delivery_accounts) ? row.delivery_accounts[0] : row.delivery_accounts;
-    return {
-      id: row.id,
-      fullName: row.full_name ?? '—',
-      phone: row.phone ?? da?.phone ?? '—',
-      code: da?.code ?? '—',
-      vehicleDetails: da?.vehicle_details ?? '—',
-      status: da?.status ?? 'unassigned',
-      accountStatus: da?.account_status ?? 'approved', // Default to approved if column not present yet
-      isBlocked: row.is_blocked ?? false,
-      createdAt: row.created_at,
-    };
-  });
-}
-
-export async function updateDeliveryPartnerStatus(id: string, status: 'approved' | 'rejected' | 'suspended') {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase
-    .from('delivery_accounts')
-    .update({ account_status: status })
-    .eq('profile_id', id);
-  if (error) throw new Error(error.message);
-  revalidatePath('/deliveries');
-}
-
-export async function createDeliveryPartner(payload: {
-  fullName: string;
-  email: string;
-  phone: string;
-  vehicleDetails?: string;
-}) {
-  const supabase = getSupabaseAdmin();
-  const tempPassword = `Fz${Math.random().toString(36).slice(2, 8)}${Math.floor(Math.random() * 100)}!`;
-
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: payload.email.trim().toLowerCase(),
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { full_name: payload.fullName, role: 'delivery' },
-  });
-  if (authError || !authData?.user) {
-    throw new Error(authError?.message ?? 'Failed to create auth user');
-  }
-
-  const userId = authData.user.id;
-
-  const { error: profileError } = await supabase.from('profiles').upsert(
-    {
-      id: userId,
-      full_name: payload.fullName,
-      phone: payload.phone,
-      role: 'delivery',
-    },
-    { onConflict: 'id' },
-  );
-  if (profileError) {
-    await supabase.auth.admin.deleteUser(userId);
-    throw new Error(profileError.message);
-  }
-
-  const code = `DP${Math.floor(1000 + Math.random() * 9000)}`;
-  const { error: accountError } = await supabase.from('delivery_accounts').upsert({
-    profile_id: userId,
-    code,
-    phone: payload.phone,
-    vehicle_details: payload.vehicleDetails ?? null,
-    status: 'unassigned',
-    account_status: 'approved',
-  }, { onConflict: 'profile_id' });
-  if (accountError) {
-    await supabase.auth.admin.deleteUser(userId);
-    throw new Error(accountError.message);
-  }
-
-  revalidatePath('/deliveries');
-  return { email: payload.email, tempPassword, code };
-}
-
-export async function blockDeliveryPartner(id: string, block: boolean) {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from('profiles').update({ is_blocked: block }).eq('id', id);
-  if (error) throw new Error(error.message);
-  revalidatePath('/deliveries');
-}
-
-export async function deleteDeliveryPartner(id: string) {
-  const supabase = getSupabaseAdmin();
-  const { error: authError } = await supabase.auth.admin.deleteUser(id);
-  if (authError) throw new Error(authError.message);
-  revalidatePath('/deliveries');
-}
-
 export async function listBanners() {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('home_banners')
     .select('*')
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false });
-  if (error) {
-    // Gracefully handle the table not existing until the migration is applied.
-    const message = String(error.message).toLowerCase();
-    if (message.includes('relation') || message.includes('does not exist') || message.includes('could not find') || message.includes('schema cache')) {
-      console.warn('home_banners table not found; return empty list until migration is applied.');
-      return [];
-    }
-    throw new Error(error.message);
-  }
+    .order('display_order', { ascending: true });
+
+  if (error) throw new Error(error.message);
   return (data ?? []).map((row: any) => ({
     id: row.id,
     title: row.title ?? '',
@@ -432,15 +429,9 @@ export async function createBanner(formData: FormData) {
   const active = formData.get('active') === 'true';
   const image = formData.get('image') as File | null;
 
-  if (!image || image.size === 0) {
-    throw new Error('Please select an image.');
-  }
-  if (image.size > 5 * 1024 * 1024) {
-    throw new Error('Image must be smaller than 5 MB.');
-  }
-  if (!image.type.startsWith('image/')) {
-    throw new Error('Only image files are allowed.');
-  }
+  if (!image || image.size === 0) throw new Error('Please select an image.');
+  if (image.size > 5 * 1024 * 1024) throw new Error('Image must be smaller than 5 MB.');
+  if (!image.type.startsWith('image/')) throw new Error('Only image files are allowed.');
 
   const extension = image.name.split('.').pop()?.toLowerCase() || 'jpg';
   const path = `${Date.now()}_banner.${extension}`;
@@ -465,23 +456,8 @@ export async function createBanner(formData: FormData) {
 
 export async function deleteBanner(id: string) {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from('home_banners').select('image_url').eq('id', id).single();
+  const { error } = await supabase.from('home_banners').delete().eq('id', id);
   if (error) throw new Error(error.message);
-
-  try {
-    if (data?.image_url) {
-      const url = new URL(data.image_url);
-      const pathParts = url.pathname.split('/home-banners/');
-      if (pathParts.length > 1) {
-        await supabase.storage.from('home-banners').remove([pathParts[1]]);
-      }
-    }
-  } catch {
-    // Best-effort cleanup
-  }
-
-  const { error: deleteError } = await supabase.from('home_banners').delete().eq('id', id);
-  if (deleteError) throw new Error(deleteError.message);
   revalidatePath('/banners');
 }
 
@@ -492,18 +468,111 @@ export async function toggleBannerActive(id: string, active: boolean) {
   revalidatePath('/banners');
 }
 
-export async function getDatabaseUsage() {
+export async function listCategories() {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.rpc('get_database_size_bytes');
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('display_order', { ascending: true });
+
   if (error) throw new Error(error.message);
-  const usedBytes = Number(data ?? 0);
-  const totalBytes = 500 * 1024 * 1024; // 500 MB Supabase free-tier reference
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug || row.name.toLowerCase().replace(/\s+/g, '-'),
+    iconUrl: row.icon_url,
+    displayOrder: row.display_order ?? 0,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createCategory(formData: FormData) {
+  const supabase = getSupabaseAdmin();
+  const name = String(formData.get('name') ?? '').trim();
+  const displayOrder = Number(formData.get('displayOrder') ?? 0);
+  if (!name) throw new Error('Category name is required.');
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const image = formData.get('image') as File | null;
+  let iconUrl: string | null = null;
+
+  if (image && image.size > 0) {
+    const extension = image.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `category_${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('home-banners')
+      .upload(path, image, { contentType: image.type, upsert: true });
+    if (!uploadError) {
+      const { data: publicUrlData } = supabase.storage.from('home-banners').getPublicUrl(path);
+      iconUrl = publicUrlData.publicUrl;
+    }
+  }
+
+  const { error } = await supabase.from('categories').insert({
+    name,
+    slug,
+    icon_url: iconUrl,
+    display_order: displayOrder,
+  });
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/categories');
+  revalidatePath('/products');
+}
+
+export async function deleteCategory(id: string) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/categories');
+  revalidatePath('/products');
+}
+
+
+export async function getCommissionSettings() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('commission_settings')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') console.error(error);
+
+  const percent = Number(data?.commission_percent ?? 5.0);
+  const mode = (data?.commission_mode || 'flat') as 'flat' | 'tiered';
+
   return {
-    usedBytes,
-    totalBytes,
-    usedPercent: totalBytes > 0 ? Math.min(100, Math.round((usedBytes / totalBytes) * 1000) / 10) : 0,
-    remainingBytes: Math.max(0, totalBytes - usedBytes),
+    commission_percent: percent,
+    commission_mode: mode,
+    percent,
+    mode,
   };
+}
+
+export async function updateCommissionPercent(percent: number) {
+  const supabase = getSupabaseAdmin();
+  const { data: existing } = await supabase
+    .from('commission_settings')
+    .select('id')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('commission_settings')
+      .update({ commission_percent: percent })
+      .eq('id', existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('commission_settings')
+      .insert({ commission_percent: percent });
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath('/revenue');
 }
 
 export async function listCommissionSlabs() {
@@ -531,18 +600,13 @@ export async function createCommissionSlab(minPrice: number, maxPrice: number | 
 
 export async function deleteCommissionSlab(id: string) {
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase
-    .from('commission_slabs')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.from('commission_slabs').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/revenue');
 }
 
 export async function updateCommissionMode(mode: 'flat' | 'tiered') {
   const supabase = getSupabaseAdmin();
-  
-  // Get existing setting to update or create
   const { data: existing } = await supabase
     .from('commission_settings')
     .select('id')
@@ -555,36 +619,252 @@ export async function updateCommissionMode(mode: 'flat' | 'tiered') {
       .from('commission_settings')
       .update({ commission_mode: mode })
       .eq('id', existing.id);
-    if (error) {
-      if (error.message.includes('column') && error.message.includes('commission_mode')) {
-        throw new Error("Please run the database migration (specifically '20260803000000_commission_slabs.sql') in your Supabase SQL Editor first to enable tiered slabs.");
-      }
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase
       .from('commission_settings')
       .insert({ commission_mode: mode });
-    if (error) {
-      if (error.message.includes('column') && error.message.includes('commission_mode')) {
-        throw new Error("Please run the database migration (specifically '20260803000000_commission_slabs.sql') in your Supabase SQL Editor first to enable tiered slabs.");
-      }
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
   }
   revalidatePath('/revenue');
 }
 
-export async function assignDeliveryPartner(orderId: string, partnerId: string | null) {
+export async function getSponsoredListings() {
   const supabase = getSupabaseAdmin();
-  const deliveryStatus = partnerId ? 'assigned' : 'unassigned';
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      delivery_partner_id: partnerId || null,
-      delivery_status: deliveryStatus,
-    })
-    .eq('id', orderId);
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, sponsored_until, seller:profiles!products_seller_id_fkey(full_name)')
+    .not('sponsored_until', 'is', null)
+    .gte('sponsored_until', new Date().toISOString())
+    .order('sponsored_until', { ascending: false });
+
   if (error) throw new Error(error.message);
-  revalidatePath('/deliveries');
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    productName: row.name,
+    sellerName: row.seller?.full_name ?? 'Seller',
+    endsAt: row.sponsored_until,
+  }));
+}
+
+
+export async function createSponsoredListing(productId: string, packageTypeOrDays?: any, numDays?: number) {
+  const supabase = getSupabaseAdmin();
+  const days = typeof numDays === 'number' ? numDays : (typeof packageTypeOrDays === 'number' ? packageTypeOrDays : 30);
+  const until = new Date();
+  until.setDate(until.getDate() + days);
+
+  const { error } = await supabase
+    .from('products')
+    .update({ sponsored_until: until.toISOString() })
+    .eq('id', productId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/revenue');
+}
+
+export async function getAdminPayoutStats() {
+  const supabase = getSupabaseAdmin();
+  const { data: onlineData } = await supabase
+    .from('orders')
+    .select('total_amount, commission_amount')
+    .eq('payment_method', 'online')
+    .neq('order_status', 'cancelled');
+  
+  const { data: codData } = await supabase
+    .from('orders')
+    .select('total_amount, commission_amount')
+    .eq('payment_method', 'cod')
+    .neq('order_status', 'cancelled');
+
+  const { data: pendingPayoutsData } = await supabase
+    .from('payouts')
+    .select('amount')
+    .eq('status', 'pending');
+
+  const { data: paidPayoutsData } = await supabase
+    .from('payouts')
+    .select('amount')
+    .eq('status', 'paid');
+
+  const onlineTotal = (onlineData ?? []).reduce((acc: number, o: any) => acc + Number(o.total_amount ?? 0), 0);
+  const codTotal = (codData ?? []).reduce((acc: number, o: any) => acc + Number(o.total_amount ?? 0), 0);
+  const totalCommission = (onlineData ?? []).concat(codData ?? []).reduce((acc: number, o: any) => acc + Number(o.commission_amount ?? 0), 0);
+  const pendingPayoutsTotal = (pendingPayoutsData ?? []).reduce((acc: number, p: any) => acc + Number(p.amount ?? 0), 0);
+  const paidPayoutsTotal = (paidPayoutsData ?? []).reduce((acc: number, p: any) => acc + Number(p.amount ?? 0), 0);
+
+  return { onlineTotal, codTotal, totalCommission, pendingPayoutsTotal, paidPayoutsTotal };
+}
+
+export async function listPendingPayouts() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('payouts')
+    .select('id, amount, status, created_at, notes, payment_proof_url, seller:profiles!payouts_seller_id_fkey(id, full_name, seller_profiles(business_name, bank_account_number, bank_ifsc, bank_account_name)), order:orders!payouts_order_id_fkey(id, subtotal_amount, commission_amount, total_amount, payment_method, placed_at, payment_confirmed_at)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: any) => {
+    const sp = Array.isArray(row.seller?.seller_profiles) ? row.seller?.seller_profiles[0] : row.seller?.seller_profiles;
+    return {
+      id: row.id,
+      amount: Number(row.amount ?? 0),
+      status: row.status,
+      createdAt: row.created_at,
+      sellerId: row.seller?.id ?? '',
+      sellerName: sp?.business_name || row.seller?.full_name || 'Seller',
+      bankAccount: sp?.bank_account_number || '—',
+      bankIfsc: sp?.bank_ifsc || '—',
+      bankName: sp?.bank_account_name || '—',
+      orderId: row.order?.id ?? '',
+      subtotalAmount: Number(row.order?.subtotal_amount ?? 0),
+      commissionAmount: Number(row.order?.commission_amount ?? 0),
+      totalAmount: Number(row.order?.total_amount ?? 0),
+      paymentMethod: row.order?.payment_method ?? 'online',
+      orderPlacedAt: row.order?.placed_at ?? '',
+      paymentConfirmedAt: row.order?.payment_confirmed_at ?? '',
+    };
+  });
+}
+
+
+export async function markPayoutAsPaid(payoutId: string, paymentProofUrl?: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: adminUser } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('role', 'admin')
+    .limit(1)
+    .maybeSingle();
+
+  const payload: any = {
+    status: 'paid',
+    paid_at: new Date().toISOString(),
+    marked_by_admin: adminUser?.id || null,
+  };
+  if (paymentProofUrl) {
+    payload.payment_proof_url = paymentProofUrl;
+  }
+
+  const { error } = await supabase
+    .from('payouts')
+    .update(payload)
+    .eq('id', payoutId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/revenue');
+}
+
+export async function markSellerPayoutsAsPaid(sellerId: string, paymentProofUrl?: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: adminUser } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('role', 'admin')
+    .limit(1)
+    .maybeSingle();
+
+  const payload: any = {
+    status: 'paid',
+    paid_at: new Date().toISOString(),
+    marked_by_admin: adminUser?.id || null,
+  };
+  if (paymentProofUrl) {
+    payload.payment_proof_url = paymentProofUrl;
+  }
+
+  const { error } = await supabase
+    .from('payouts')
+    .update(payload)
+    .eq('seller_id', sellerId)
+    .eq('status', 'pending');
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/revenue');
+}
+
+export async function getSystemSettings() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('system_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Failed to fetch system settings', error);
+  }
+
+  return {
+    razorpay_live_key_id: data?.razorpay_live_key_id || '',
+    razorpay_live_key_secret: data?.razorpay_live_key_secret || '',
+    admin_bank_account_name: data?.admin_bank_account_name || '',
+    admin_bank_account_number: data?.admin_bank_account_number || '',
+    admin_bank_ifsc: data?.admin_bank_ifsc || '',
+    admin_bank_name: data?.admin_bank_name || '',
+  };
+}
+
+export async function updateSystemSettings(settings: {
+  razorpay_live_key_id: string;
+  razorpay_live_key_secret: string;
+  admin_bank_account_name: string;
+  admin_bank_account_number: string;
+  admin_bank_ifsc: string;
+  admin_bank_name: string;
+}) {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from('system_settings')
+    .upsert({
+      id: 1,
+      ...settings,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/settings');
+  revalidatePath('/revenue');
+}
+
+export async function uploadPayoutProof(formData: FormData): Promise<string> {
+  const file = formData.get('file') as File;
+  if (!file) throw new Error('No file provided');
+
+  const supabase = getSupabaseAdmin();
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const filePath = `proof_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error } = await supabase.storage
+    .from('payout-receipts')
+    .upload(filePath, buffer, {
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage
+    .from('payout-receipts')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+export async function getDatabaseUsage() {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('get_database_size_bytes');
+  if (error && !error.message.includes('function') && !error.message.includes('does not exist')) {
+    console.error(error);
+  }
+  const usedBytes = Number(data ?? 0);
+  const totalBytes = 500 * 1024 * 1024;
+  return {
+    usedBytes,
+    totalBytes,
+    usedPercent: totalBytes > 0 ? Math.min(100, Math.round((usedBytes / totalBytes) * 1000) / 10) : 0,
+    remainingBytes: Math.max(0, totalBytes - usedBytes),
+  };
 }

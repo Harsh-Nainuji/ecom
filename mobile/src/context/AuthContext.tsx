@@ -147,8 +147,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      Alert.alert('Sign in failed', error.message);
-      throw error;
+      const msg = error.message === 'Invalid login credentials' 
+        ? 'Incorrect email or password. Please check your details and try again.' 
+        : error.message;
+      throw new Error(msg);
     }
   }, []);
 

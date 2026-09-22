@@ -15,11 +15,16 @@ export function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'delivery'>('buyer');
   const [submitting, setSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   async function handleSubmit() {
     if (submitting) return;
     if (!fullName.trim() || !email.trim() || !password) {
       Alert.alert('Validation Error', 'All fields are required.');
+      return;
+    }
+    if (!agreed) {
+      Alert.alert('Consent required', 'You must agree to the Terms & Privacy Policy to create an account.');
       return;
     }
     setSubmitting(true);
@@ -124,10 +129,36 @@ export function RegisterScreen() {
           </View>
         </View>
 
+        {/* Consent Checkbox */}
+        <Pressable 
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: S.sm, paddingHorizontal: 2 }}
+          onPress={() => setAgreed(!agreed)}
+        >
+          <View style={{
+            width: 20,
+            height: 20,
+            borderRadius: R.sm,
+            borderWidth: 2,
+            borderColor: agreed ? C.rose : C.border,
+            backgroundColor: agreed ? C.rose : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {agreed && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text>}
+          </View>
+          <Text style={{ flex: 1, ...T.bodySmall, color: C.text2 }}>
+            I agree to the{' '}
+            <Text style={{ color: C.rose, fontWeight: '600' }} onPress={() => navigation.navigate('Terms')}>
+              Terms & Privacy Policy
+            </Text>
+          </Text>
+        </Pressable>
+
+
         <Pressable
-          style={[BTN.primary, submitting && BTN.disabled]}
+          style={[BTN.primary, (submitting || !agreed) && BTN.disabled]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !agreed}
         >
           <Text style={BTN.primaryText}>
             {submitting ? 'Creating account…' : `Create ${role === 'buyer' ? 'Buyer' : role === 'seller' ? 'Seller' : 'Delivery Partner'} Account`}
@@ -138,7 +169,6 @@ export function RegisterScreen() {
           <Text style={styles.loginText}>Already have an account? </Text>
           <Text style={T.link}>Sign in</Text>
         </Pressable>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );

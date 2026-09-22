@@ -1,3 +1,5 @@
+"use client";
+
 import { Bell, Search, Mail } from 'lucide-react';
 
 export function TopBar() {
@@ -17,12 +19,14 @@ export function TopBar() {
       <div className="flex items-center gap-4">
         <button
           type="button"
+          onClick={() => window.alert('Inbox is currently empty.')}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800 shadow-sm"
         >
           <Mail className="h-4 w-4" />
         </button>
         <button
           type="button"
+          onClick={() => window.alert('You have no new notifications.')}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800 shadow-sm"
         >
           <div className="relative">

@@ -107,6 +107,20 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: 'Cart is empty' }, { status: 400 });
   }
 
+  const variantIds = cartRows.map(r => r.variant_id);
+  
+  // Fetch active reservations for these variants
+  const { data: reservations } = await supabase
+    .from('inventory_reservations')
+    .select('variant_id, quantity')
+    .in('variant_id', variantIds)
+    .gt('expires_at', new Date().toISOString());
+
+  const reservedStockByVariant = (reservations || []).reduce((acc: Record<string, number>, res) => {
+    acc[res.variant_id] = (acc[res.variant_id] || 0) + res.quantity;
+    return acc;
+  }, {});
+
   let normalized: NormalizedCartItem[];
   try {
     normalized = cartRows.map((row: CartRow) => {
@@ -123,8 +137,11 @@ Deno.serve(async (req: Request) => {
         throw new Error('Invalid pricing data');
       }
 
-      if (row.quantity > variant.stock) {
-        throw new Error('Requested quantity exceeds stock');
+      const activeReservations = reservedStockByVariant[variant.id] || 0;
+      const availableStock = variant.stock - activeReservations;
+
+      if (row.quantity > availableStock) {
+        throw new Error('Requested quantity exceeds available stock');
       }
 
       return {
@@ -138,6 +155,18 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     return Response.json({ error: (error as Error).message }, { status: 400 });
   }
+
+  // Create reservations for the items in the cart
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+  const reservationPayload = normalized.map(item => ({
+    buyer_id: user.id,
+    variant_id: item.variantId,
+    quantity: item.quantity,
+    expires_at: expiresAt,
+  }));
+
+  await supabase.from('inventory_reservations').insert(reservationPayload);
+
 
   const uniqueSellers = [...new Set(normalized.map((item: NormalizedCartItem) => item.sellerId))];
 

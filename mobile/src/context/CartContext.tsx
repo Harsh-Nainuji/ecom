@@ -38,22 +38,45 @@ export function CartProvider({ children }: PropsWithChildren) {
 
   const setQuantity = useCallback(async (variantId: string, quantity: number) => {
     if (!session?.user) return;
-    await updateCartItem(session.user.id, variantId, quantity);
-    await refresh();
+    setItems((prev) =>
+      prev.map((item) => (item.variant_id === variantId ? { ...item, quantity } : item))
+    );
+    try {
+      await updateCartItem(session.user.id, variantId, quantity);
+    } catch (error) {
+      console.warn('Failed to sync cart quantity', error);
+      refresh();
+    }
   }, [session?.user, refresh]);
 
   const addToCart = useCallback(async (variantId: string, quantity: number = 1, productId?: string) => {
     if (!session?.user) return;
     const existing = items.find((item) => item.variant_id === variantId || (productId && item.product_variant?.product?.id === productId));
     const newQty = (existing?.quantity ?? 0) + quantity;
-    await updateCartItem(session.user.id, variantId, newQty, productId);
-    await refresh();
+    if (existing) {
+      setItems((prev) =>
+        prev.map((item) => (item.id === existing.id ? { ...item, quantity: newQty } : item))
+      );
+    }
+    try {
+      await updateCartItem(session.user.id, variantId, newQty, productId);
+      const updated = await fetchCart(session.user.id);
+      setItems(updated ?? []);
+    } catch (error) {
+      console.warn('Failed to add to cart', error);
+      refresh();
+    }
   }, [session?.user, items, refresh]);
 
   const remove = useCallback(async (variantId: string) => {
     if (!session?.user) return;
-    await removeCartItem(session.user.id, variantId);
-    await refresh();
+    setItems((prev) => prev.filter((item) => item.variant_id !== variantId));
+    try {
+      await removeCartItem(session.user.id, variantId);
+    } catch (error) {
+      console.warn('Failed to remove cart item', error);
+      refresh();
+    }
   }, [session?.user, refresh]);
 
   useEffect(() => {

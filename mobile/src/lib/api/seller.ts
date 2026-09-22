@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import type { OrderStatus, Product, ProductVariant } from '../types';
+import type { OrderStatus, Product, ProductStatus, ProductVariant } from '../types';
 
 export type SellerProduct = Product & { product_variants?: ProductVariant[] };
 
@@ -18,6 +18,12 @@ export interface SellerOrder {
   placed_at: string;
   buyer_name: string;
   shipping_city?: string;
+  payment_method?: 'cod' | 'online';
+  payment_confirmed_at?: string | null;
+  shipping_type?: 'retail' | 'wholesale';
+  transporter_name?: string | null;
+  vehicle_number?: string | null;
+  lr_number?: string | null;
   items: {
     id: string;
     productName: string;
@@ -25,6 +31,7 @@ export interface SellerOrder {
     totalPrice: number;
   }[];
 }
+
 
 const STATUS_FLOW: OrderStatus[] = ['pending', 'paid', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'];
 
@@ -86,7 +93,9 @@ export async function fetchSellerProducts(sellerId: string): Promise<SellerProdu
     .from('products')
     .select('*, product_variants(*), product_images(*)')
     .eq('seller_id', sellerId)
-    .order('updated_at', { ascending: false });
+    .neq('status', 'inactive')
+    .order('created_at', { ascending: false });
+
   if (error) throw new Error(error.message);
   return (data ?? []) as SellerProduct[];
 }
@@ -95,11 +104,11 @@ export async function upsertSellerProduct(
   sellerId: string,
   payload: {
     id?: string;
-    name?: string;
-    price?: number;
-    description?: string;
-    status?: Product['status'];
     category_id?: string | null;
+    name?: string;
+    description?: string;
+    price?: number;
+    status?: ProductStatus;
   },
 ): Promise<string> {
   if (!payload.name && !payload.id) {
@@ -128,38 +137,53 @@ export async function upsertSellerProduct(
       .single();
     if (error) throw new Error(error.message);
     productId = data.id as string;
-    // Create default variant for new product
-    await supabase.from('product_variants').insert({ product_id: productId, stock: 10, size: null, color: null });
+    // Create default variant for new product with 0 stock
+    await supabase.from('product_variants').insert({ product_id: productId, stock: 0, size: null, color: null });
   }
 
   return productId;
 }
 
 export async function deleteSellerProduct(productId: string): Promise<void> {
-  const { error } = await supabase
-    .from('products')
-    .delete()
-    .eq('id', productId);
-  if (error) throw new Error(error.message);
+  // 1. Clean up cart items and images
+  try {
+    await supabase.from('cart_items').delete().eq('product_id', productId);
+  } catch {
+    // Ignore cleanup error
+  }
+  try {
+    await supabase.from('product_images').delete().eq('product_id', productId);
+  } catch {
+    // Ignore cleanup error
+  }
+
+  // 2. Attempt hard delete from products table
+  const { error } = await supabase.from('products').delete().eq('id', productId);
+  
+  if (error) {
+    // 3. Fallback: If product is referenced in existing orders, archive/soft-delete it
+    const { error: archiveError } = await supabase
+      .from('products')
+      .update({ status: 'inactive' })
+      .eq('id', productId);
+      
+    if (archiveError) throw new Error(archiveError.message);
+  }
 }
 
 export async function adjustVariantStock(variantId: string, delta: number) {
   const { data, error } = await supabase
-    .from('product_variants')
-    .select('stock')
-    .eq('id', variantId)
-    .single();
+    .rpc('increment_stock', { p_variant_id: variantId, p_delta: delta });
+
   if (error) throw new Error(error.message);
-  const nextStock = Math.max(0, Number(data?.stock ?? 0) + delta);
-  const { error: updateError } = await supabase.from('product_variants').update({ stock: nextStock }).eq('id', variantId);
-  if (updateError) throw new Error(updateError.message);
-  return nextStock;
+  
+  return data as number; // Returns the new stock value
 }
 
-export async function fetchSellerOrders(sellerId: string, statusFilter?: OrderStatus) {
+export async function fetchSellerOrders(sellerId: string, statusFilter?: OrderStatus): Promise<SellerOrder[]> {
   let query = supabase
     .from('orders')
-    .select('id, total_amount, order_status, placed_at, shipping_address, order_items(id, quantity, total_price, product:products(name))')
+    .select('id, total_amount, order_status, placed_at, shipping_address, payment_method, payment_confirmed_at, shipping_type, transporter_name, vehicle_number, lr_number, order_items(id, quantity, total_price, product:products(name))')
     .eq('seller_id', sellerId)
     .order('placed_at', { ascending: false });
 
@@ -177,6 +201,12 @@ export async function fetchSellerOrders(sellerId: string, statusFilter?: OrderSt
     placed_at: order.placed_at,
     buyer_name: (order.shipping_address as Record<string, string> | null)?.recipient_name ?? 'Buyer',
     shipping_city: (order.shipping_address as Record<string, string> | null)?.city ?? undefined,
+    payment_method: order.payment_method,
+    payment_confirmed_at: order.payment_confirmed_at,
+    shipping_type: order.shipping_type || 'retail',
+    transporter_name: order.transporter_name,
+    vehicle_number: order.vehicle_number,
+    lr_number: order.lr_number,
     items:
       order.order_items?.map((item: any) => ({
         id: item.id,
@@ -191,3 +221,40 @@ export async function updateOrderStatus(orderId: string, nextStatus: OrderStatus
   const { error } = await supabase.from('orders').update({ order_status: nextStatus }).eq('id', orderId);
   if (error) throw new Error(error.message);
 }
+
+export async function updateSellerProfile(sellerId: string, payload: any) {
+  const { error } = await supabase.from('seller_profiles').update(payload).eq('id', sellerId);
+  if (error) throw new Error(error.message);
+}
+
+export interface SellerPendingPayout {
+  id: string;
+  amount: number;
+  status?: 'pending' | 'paid';
+  created_at: string;
+  paid_at?: string;
+  payment_proof_url?: string;
+  order_id: string;
+  payment_confirmed_at: string;
+}
+
+export async function fetchSellerPendingPayouts(sellerId: string): Promise<SellerPendingPayout[]> {
+  const { data, error } = await supabase
+    .from('payouts')
+    .select('id, amount, status, created_at, paid_at, payment_proof_url, order_id, orders!payouts_order_id_fkey(payment_confirmed_at)')
+    .eq('seller_id', sellerId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    amount: Number(row.amount ?? 0),
+    status: row.status,
+    created_at: row.created_at,
+    paid_at: row.paid_at,
+    payment_proof_url: row.payment_proof_url,
+    order_id: row.order_id,
+    payment_confirmed_at: row.orders?.payment_confirmed_at || row.created_at,
+  }));
+}
+

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Truck, RotateCcw, Star, ShoppingBag, X, Maximize2 } from 'lucide-react-native';
 import { fetchProductById, fetchReviews } from '../../lib/api/buyer';
 import { getProductImageUrl, pickPrimaryImage } from '../../lib/storage';
@@ -35,6 +36,7 @@ export function ProductDetailScreen() {
   const { wishlist, toggle } = useWishlist();
   const { items, addToCart } = useCart();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,14 +99,23 @@ export function ProductDetailScreen() {
   }, [items, product, selectedVariant]);
 
   const ratingVal = useMemo(() => {
-    return product?.reviews_aggregate?.avg ?? 0;
-  }, [product]);
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+      return Math.round(sum / reviews.length);
+    }
+    return Math.round(product?.reviews_aggregate?.avg ?? 0);
+  }, [reviews, product]);
 
   const ratingText = useMemo(() => {
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+      const avg = sum / reviews.length;
+      return `${avg.toFixed(1)} (${reviews.length} review${reviews.length > 1 ? 's' : ''})`;
+    }
     const avg = product?.reviews_aggregate?.avg ?? 0;
     const count = product?.reviews_aggregate?.count ?? 0;
-    return count > 0 ? `${avg?.toFixed(1)} (${count} reviews)` : 'No reviews yet';
-  }, [product]);
+    return count > 0 ? `${avg.toFixed(1)} (${count} reviews)` : 'No reviews yet';
+  }, [reviews, product]);
 
   async function handleWishlist() {
     if (!session?.user) {
@@ -329,7 +340,7 @@ export function ProductDetailScreen() {
           <View style={styles.trustRow}>
             <View style={styles.trustItem}>
               <Truck size={14} color={C.rose} strokeWidth={2} />
-              <Text style={styles.trustText}>Free delivery above ₹499</Text>
+              <Text style={styles.trustText}>Free delivery on all orders</Text>
             </View>
             <View style={styles.trustItem}>
               <RotateCcw size={14} color={C.rose} strokeWidth={2} />
@@ -375,7 +386,7 @@ export function ProductDetailScreen() {
       </ScrollView>
 
       {/* Sticky CTA bar */}
-      <View style={styles.actionBar}>
+      <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, S.lg) }]}>
         <TouchableOpacity
           style={styles.wishlistButton}
           onPress={handleWishlist}

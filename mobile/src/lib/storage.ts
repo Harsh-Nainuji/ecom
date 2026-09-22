@@ -89,7 +89,23 @@ export async function uploadProductImage(productId: string, base64Image: string,
   }
 }
 
+export async function uploadDeliveryProof(base64Image: string, fileName: string, mimeType: string) {
+  const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `proofs/${Date.now()}_${sanitizedFileName}`;
+  const arrayBuffer = decodeBase64(base64Image);
+
+  const { error: uploadError } = await supabase.storage
+    .from('delivery-proofs')
+    .upload(path, arrayBuffer, { contentType: mimeType, upsert: true });
+
+  if (uploadError) throw new Error(`Proof upload failed: ${uploadError.message}`);
+
+  const { data } = supabase.storage.from('delivery-proofs').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 function decodeBase64(base64: string): Uint8Array {
+
   // 1. Strip data URI prefix if present (e.g. "data:image/jpeg;base64,")
   const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
   

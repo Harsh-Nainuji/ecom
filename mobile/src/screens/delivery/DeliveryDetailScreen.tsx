@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { Phone, Map, Clipboard } from 'lucide-react-native';
+import { Phone, Map, Clipboard, Check } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { ScreenPlaceholder } from '../../components/ScreenPlaceholder';
 import type { DeliveryStackParamList } from '../../navigation/DeliveryStack';
-import { fetchDeliveryOrder, updateDeliveryOrderStatus, verifyDeliveryOtp } from '../../lib/api/delivery';
+import { fetchDeliveryOrder, updateDeliveryOrderStatus, verifyDeliveryOtp, confirmCashCollection } from '../../lib/api/delivery';
 import type { DeliveryOrderDetail } from '../../lib/types';
 import { C, S, R, BTN, INPUT, T } from '../../lib/theme';
 
@@ -148,6 +148,7 @@ export function DeliveryDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ORDER DETAILS</Text>
+
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={T.label}>Order ID</Text>
@@ -158,7 +159,22 @@ export function DeliveryDetailScreen() {
               <Text style={[T.bodySmall, { flex: 1, textAlign: 'right' }]}>{itemsLabel}</Text>
             </View>
             <View style={[styles.row, styles.rowBorder]}>
-              <Text style={T.label}>COD Amount</Text>
+              <Text style={T.label}>Payment Method</Text>
+              <View style={{
+                backgroundColor: order.payment_method === 'cod' ? '#fff7ed' : '#f0fdf4',
+                borderColor: order.payment_method === 'cod' ? '#ffedd5' : '#bbf7d0',
+                borderWidth: 1,
+                borderRadius: R.sm,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+              }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: order.payment_method === 'cod' ? '#ea580c' : '#16a34a' }}>
+                  {(order.payment_method || 'online').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.row, styles.rowBorder]}>
+              <Text style={T.label}>{order.payment_method === 'cod' ? 'COD Amount' : 'Amount (Paid Online)'}</Text>
               <Text style={T.price}>₹{order.total_amount.toLocaleString()}</Text>
             </View>
           </View>
@@ -236,6 +252,50 @@ export function DeliveryDetailScreen() {
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+        )}
+
+        {order.payment_method === 'cod' && order.order_status === 'out_for_delivery' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>CASH COLLECTION</Text>
+            <View style={styles.card}>
+              {order.payment_confirmed_at ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+                  <View style={{ backgroundColor: '#f0fdf4', padding: 6, borderRadius: R.full }}>
+                    <Check size={16} color={C.success} />
+                  </View>
+                  <Text style={[T.bodySmall, { color: C.success, fontWeight: '700' }]}>
+                    Cash of ₹{order.total_amount.toLocaleString()} Collected!
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: S.sm }}>
+                  <Text style={T.bodySmall}>
+                    Please collect <Text style={{ fontWeight: '700' }}>₹{order.total_amount.toLocaleString()}</Text> in cash from the customer before completing delivery.
+                  </Text>
+                  <TouchableOpacity
+                    style={[BTN.primary, { backgroundColor: '#ea580c' }, actionLoading && BTN.disabled]}
+                    onPress={async () => {
+                      if (actionLoading) return;
+                      setActionLoading(true);
+                      try {
+                        await confirmCashCollection(order.id, session.user.id);
+                        await load();
+                        Alert.alert('Success', 'Cash collection confirmed.');
+                      } catch (err) {
+                        Alert.alert('Error', (err as Error).message);
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    activeOpacity={0.9}
+                  >
+                    <Text style={BTN.primaryText}>Confirm Cash Collected</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
         )}

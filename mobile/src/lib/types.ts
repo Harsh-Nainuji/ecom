@@ -20,6 +20,8 @@ export interface ProductVariant {
   price_override?: number | null;
 }
 
+export type ProductStatus = 'draft' | 'active' | 'inactive';
+
 export interface Product {
   id: string;
   seller_id: string;
@@ -27,7 +29,7 @@ export interface Product {
   name: string;
   description?: string | null;
   price: number;
-  status: 'draft' | 'active' | 'inactive';
+  status: ProductStatus;
   sponsored_until?: string | null;
   commission_rate: number;
   product_images?: ProductImage[];
@@ -83,10 +85,21 @@ export interface OrderSummary {
   total_amount: number;
   order_status: OrderStatus;
   placed_at: string;
+  payment_method?: 'cod' | 'online';
+  payment_confirmed_at?: string | null;
 }
 
 export interface OrderDetail extends OrderSummary {
+  shipping_type?: 'retail' | 'wholesale';
+  transporter_name?: string | null;
+  vehicle_number?: string | null;
+  lr_number?: string | null;
+  lr_image_url?: string | null;
+  package_image_url?: string | null;
+  pod_image_url?: string | null;
+  estimated_delivery_at?: string | null;
   shipping_address: {
+
     recipient_name: string;
     phone: string;
     line1: string;
@@ -107,6 +120,7 @@ export interface OrderDetail extends OrderSummary {
     expires_at: string;
   } | null;
 }
+
 
 export type DeliveryState = 'unassigned' | 'assigned' | 'out_for_delivery' | 'completed' | 'failed';
 

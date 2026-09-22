@@ -433,41 +433,100 @@ export function SellerProductsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{isNewProduct ? 'Add Product' : 'Edit Product'}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Product Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder="Product name"
-                />
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Basic Details</Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Product Name</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="e.g. Cotton T-Shirt"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Category</Text>
+                  <View style={styles.categoryRow}>
+                    {categories.map((cat) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                          styles.categoryChip,
+                          editCategoryId === cat.id && styles.categoryChipActive,
+                        ]}
+                        onPress={() => setEditCategoryId(cat.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            editCategoryId === cat.id && styles.categoryChipTextActive,
+                          ]}
+                        >
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Description</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={editDesc}
+                    onChangeText={setEditDesc}
+                    multiline={true}
+                    numberOfLines={4}
+                    placeholder="Describe your product..."
+                  />
+                </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Price (₹)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editPrice}
-                  onChangeText={setEditPrice}
-                  keyboardType="numeric"
-                  placeholder="Price"
-                />
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Pricing & Status</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Price (₹)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editPrice}
+                    onChangeText={setEditPrice}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Status</Text>
+                  <View style={styles.statusRow}>
+                    {['draft', 'active', 'inactive'].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[
+                          styles.statusBtn,
+                          editStatus === st && styles.statusBtnActive,
+                        ]}
+                        onPress={() => setEditStatus(st as any)}
+                      >
+                        <Text
+                          style={[
+                            styles.statusBtnText,
+                            editStatus === st && styles.statusBtnTextActive,
+                          ]}
+                        >
+                          {st.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Description</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  value={editDesc}
-                  onChangeText={setEditDesc}
-                  multiline={true}
-                  numberOfLines={4}
-                  placeholder="Describe your product..."
-                />
-              </View>
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Product Images ({editingProduct?.product_images?.length || 0}/5)</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageScroll}>
                   {(editingProduct?.product_images || []).map((img) => {
                     const fullUrl = getProductImageUrl(img.image_url);
@@ -490,58 +549,10 @@ export function SellerProductsScreen() {
                     </TouchableOpacity>
                   )}
                 </ScrollView>
-                <Text style={[T.caption, { marginTop: 4 }]}>Maximum 5 images. Under 5MB per image.</Text>
+                <Text style={[T.caption, { marginTop: 8 }]}>Maximum 5 images. Under 5MB per image. Square format recommended (1:1).</Text>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category</Text>
-                <View style={styles.categoryRow}>
-                  {categories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryChip,
-                        editCategoryId === cat.id && styles.categoryChipActive,
-                      ]}
-                      onPress={() => setEditCategoryId(cat.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryChipText,
-                          editCategoryId === cat.id && styles.categoryChipTextActive,
-                        ]}
-                      >
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Status</Text>
-                <View style={styles.statusRow}>
-                  {['draft', 'active', 'inactive'].map((st) => (
-                    <TouchableOpacity
-                      key={st}
-                      style={[
-                        styles.statusBtn,
-                        editStatus === st && styles.statusBtnActive,
-                      ]}
-                      onPress={() => setEditStatus(st as any)}
-                    >
-                      <Text
-                        style={[
-                          styles.statusBtnText,
-                          editStatus === st && styles.statusBtnTextActive,
-                        ]}
-                      >
-                        {st.toUpperCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={closeEditModal}>
@@ -619,4 +630,6 @@ const styles = StyleSheet.create({
   addImageBtn: { width: 80, height: 80, borderRadius: R.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.pink, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', gap: 2 },
   addImageBtnText: { fontSize: 20, color: C.rose, fontWeight: '700' },
   addImageSubtext: { fontSize: 9, color: C.muted, fontWeight: '600' },
+  sectionCard: { backgroundColor: C.surface, padding: S.md, borderRadius: R.md, borderWidth: 1, borderColor: C.border, marginBottom: S.md },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: S.md },
 });
